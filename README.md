@@ -677,6 +677,8 @@ está en [docs/architecture.md](docs/architecture.md).
 
 ### Contribuir
 
+Las mejores previstas están en [ROADMAP.md](ROADMAP.md) y las [issues abiertas](https://github.com/alejandrocsharp/suize/issues), etiquetadas por prioridad.
+
 1. Crea una rama a partir de `main`.
 2. Añade tests para el cambio (los fixtures de `tests/fixtures/` sirven como base).
 3. Ejecuta `scripts/lint.sh` antes de abrir el pull request; la CI aplica las mismas
