@@ -1,0 +1,4 @@
+# Dependencias de ejecución (las mismas que [project.dependencies] en pyproject.toml).
+# Para desarrollo usa:  pip install -e ".[dev]"
+questionary>=2.0
+rich>=13.0

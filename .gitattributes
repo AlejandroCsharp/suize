@@ -1,0 +1,12 @@
+# Normaliza los finales de línea a LF en el repositorio, sin importar desde qué
+# sistema se haga el commit. Evita que un checkout en Windows convierta los
+# scripts a CRLF, lo que rompe el shebang ("/usr/bin/env: 'bash\r'").
+* text=auto eol=lf
+
+*.sh      text eol=lf
+*.py      text eol=lf
+*.toml    text eol=lf
+*.md      text eol=lf
+
+# Fixtures: se conservan exactamente como están, sin conversión de finales de línea.
+tests/fixtures/* -text

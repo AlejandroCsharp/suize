@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancela ejecuciones anteriores de la misma rama cuando llega un push nuevo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint y tipos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Instalar dependencias
+        run: python -m pip install -e ".[dev]"
+      - name: ruff check
+        run: ruff check --output-format=github .
+      - name: ruff format --check
+        run: ruff format --check .
+      - name: mypy
+        run: mypy src
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Instalar dependencias
+        run: python -m pip install -e ".[dev]"
+      # Los tests simulan nmap, journalctl y systemctl: no hace falta instalarlos.
+      - name: pytest
+        run: pytest -v
+
+  package:
+    name: Paquete instalable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Construir wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+      - name: Comprobar que default.toml viaja en el wheel
+        run: python -m zipfile -l dist/*.whl | grep -q "suize/config/default.toml"
+      - name: Instalar el wheel en un entorno limpio y ejecutarlo
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+          /tmp/venv/bin/suize --version
+          /tmp/venv/bin/suize --help > /dev/null
+          /tmp/venv/bin/suize scan --help > /dev/null
+          /tmp/venv/bin/suize logs --help > /dev/null

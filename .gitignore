@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Herramientas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Configuración local
+.env
+
+# Salidas de Suize / Nmap
+*.xml
+!tests/fixtures/*.xml
+scans/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store

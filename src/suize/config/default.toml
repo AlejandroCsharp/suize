@@ -1,0 +1,59 @@
+# Configuración por defecto de Suize.
+#
+# Para personalizarla, crea ~/.config/suize/config.toml (o apunta SUIZE_CONFIG
+# a otra ruta) con SOLO las claves que quieras cambiar: se combinan por encima
+# de estos valores. Las listas (como time_presets) se reemplazan completas.
+
+[scan]
+# Objetivo que se propone por defecto en el menú y en `suize scan` sin argumento.
+default_target = "127.0.0.1"
+# Tiempo máximo de un escaneo de Nmap, en segundos.
+timeout = 600
+# Perfil de escaneo: "fast" (-F, 100 puertos), "standard" (1000 puertos) o "full" (-p-).
+profile = "standard"
+
+[logs]
+# Número máximo de entradas que se piden a journalctl (--lines).
+lines = 200
+# Tiempo máximo de una consulta a journalctl, en segundos.
+timeout = 60
+# Cuántas unidades mostrar en el "top" del resumen.
+top_units = 5
+# Preset preseleccionado en el menú y usado por `suize scan --correlate`.
+default_time_preset = "1h"
+
+# Presets temporales que ofrece el menú. `key` admite:
+#   - duraciones relativas: "15m", "30min", "2h", "3d", "1w"...
+#   - "today" / "yesterday"
+#   - "custom": pide fechas exactas al usuario
+[[logs.time_presets]]
+key = "15m"
+label = "Últimos 15 minutos"
+
+[[logs.time_presets]]
+key = "1h"
+label = "Última hora"
+
+[[logs.time_presets]]
+key = "6h"
+label = "Últimas 6 horas"
+
+[[logs.time_presets]]
+key = "24h"
+label = "Últimas 24 horas"
+
+[[logs.time_presets]]
+key = "7d"
+label = "Últimos 7 días"
+
+[[logs.time_presets]]
+key = "today"
+label = "Hoy"
+
+[[logs.time_presets]]
+key = "yesterday"
+label = "Ayer"
+
+[[logs.time_presets]]
+key = "custom"
+label = "Personalizado (fecha exacta)"
