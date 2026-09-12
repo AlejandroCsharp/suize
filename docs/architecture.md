@@ -71,9 +71,11 @@ suize/
 │   │   └── correlator.py     # puertos → unidades systemd
 │   └── ui/
 │       ├── theme.py          # colores por prioridad, iconos, consola
+│       ├── pager.py          # envía a less las salidas que no caben en pantalla
 │       ├── prompts.py        # preguntas questionary reutilizables
 │       ├── render_nmap.py    # tablas de puertos y de correlación
 │       ├── render_logs.py    # panel de resumen y tabla de logs
+│       ├── export.py         # serialización a JSON y CSV
 │       └── menus.py          # menú principal y flujos
 ├── tests/
 │   ├── conftest.py           # FakeSystem: simula nmap/journalctl/systemctl
@@ -169,6 +171,22 @@ y `build_command` se limita a recibir el resultado como un booleano. Por eso con
 comando sigue siendo comprobable sin red, y los tests del resolutor inyectan un doble en lugar
 de depender del DNS. Un nombre con registros A y AAAA no activa `-6`: Nmap usa IPv4 y funciona;
 y si el nombre no resuelve, quien informa del error es Nmap con su propio mensaje.
+
+**Opciones globales en dos posiciones.** `--config`, `--no-color` y `--no-pager` se registran
+en el parser principal y se repiten dentro de cada subcomando con `default=SUPPRESS`. Sin ese
+`SUPPRESS`, argparse aplicaría el valor por defecto del subparser al terminar de analizar y
+borraría lo que el usuario escribió antes del subcomando, que es el error clásico de este
+patrón; con él, la opción solo aparece en el resultado si se indicó de verdad.
+
+**Paginación decidida a posteriori.** `ui/pager.py` no puede saber cuánto ocupará una salida
+antes de generarla, así que captura el bloque en memoria, cuenta sus líneas y solo entonces
+decide: si cabe en la pantalla lo reescribe tal cual (sin volver a pasarlo por `print`, que
+reinterpretaría los corchetes de un mensaje de log como marcado), y si no lo manda al
+paginador. El envoltorio se aplica alrededor de las llamadas de renderizado, nunca alrededor de
+la lógica que las precede: capturar una pregunta interactiva o un indicador de progreso dejaría
+al usuario ante una pantalla en blanco. Por eso en los flujos del menú se paginan las secciones
+por separado, mientras que en los subcomandos, donde no hay preguntas de por medio, todo el
+informe cabe en un único paginador.
 
 **Los parsers no imprimen.** `nmap_parser` y `journal_parser` reciben texto y devuelven
 dataclasses o lanzan una excepción propia (`NmapParseError`, `JournalParseError`). No saben que

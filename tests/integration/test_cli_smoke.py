@@ -647,3 +647,81 @@ def test_scan_of_an_ipv4_address_never_resolves(
     code, _, _ = run_cli(capsys, "scan", "127.0.0.1", "-q")
 
     assert code == cli.EXIT_OK
+
+
+# -------------------------------------------------------------------------- paginador
+
+
+def test_logs_are_not_paged_when_stdout_is_captured(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """pytest captura la salida, así que no hay terminal: nada debe paginarse."""
+    code, out, _ = run_cli(capsys, "logs", "--since", "24h")
+
+    assert code == cli.EXIT_OK
+    # Si se hubiese paginado, la tabla no estaría en stdout.
+    assert "Logs del sistema" in out
+
+
+def test_no_pager_flag_is_accepted_by_both_subcommands() -> None:
+    parser = cli.build_parser()
+
+    for argv in (["--no-pager", "scan", "127.0.0.1"], ["--no-pager", "logs"]):
+        assert parser.parse_args(argv).no_pager is True
+
+
+def test_pager_is_enabled_by_default() -> None:
+    assert cli.build_parser().parse_args(["logs"]).no_pager is False
+
+
+def test_no_pager_reaches_the_interactive_menu(
+    fake_system: FakeSystem, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """La opción global debe llegar al AppContext del menú."""
+    contexts: list[menus.AppContext] = []
+
+    def capture_context(ctx: menus.AppContext) -> int:
+        contexts.append(ctx)
+        return cli.EXIT_OK
+
+    monkeypatch.setattr(cli, "_is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(menus, "run_menu", capture_context)
+
+    cli.main(["--no-pager"])
+    cli.main([])
+
+    assert [ctx.pager for ctx in contexts] == [False, True]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--no-pager", "logs"],
+        ["logs", "--no-pager"],
+        ["--no-pager", "scan", "127.0.0.1"],
+        ["scan", "127.0.0.1", "--no-pager"],
+    ],
+)
+def test_global_options_work_before_and_after_the_subcommand(argv: list[str]) -> None:
+    """Escribir '--no-pager' al final es lo natural: debe funcionar igual."""
+    assert cli.build_parser().parse_args(argv).no_pager is True
+
+
+@pytest.mark.parametrize("argv", [["--no-color", "logs"], ["logs", "--no-color"]])
+def test_no_color_also_works_in_both_positions(argv: list[str]) -> None:
+    assert cli.build_parser().parse_args(argv).no_color is True
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["--config", "/tmp/suize.toml", "logs"], ["logs", "--config", "/tmp/suize.toml"]],
+)
+def test_config_also_works_in_both_positions(argv: list[str]) -> None:
+    assert cli.build_parser().parse_args(argv).config == Path("/tmp/suize.toml")
+
+
+def test_the_subcommand_does_not_reset_an_earlier_global_option() -> None:
+    """El fallo clásico de argparse: el subparser pisando el valor anterior."""
+    args = cli.build_parser().parse_args(["--no-pager", "--no-color", "logs", "--since", "1h"])
+
+    assert (args.no_pager, args.no_color) == (True, True)

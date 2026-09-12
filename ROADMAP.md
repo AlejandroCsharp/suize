@@ -53,8 +53,8 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
   el objetivo es un nombre y añade `-6` si solo resuelve a IPv6.
 - [x] **Exportación a CSV o a un archivo.** Resuelto: `--format {table,json,csv}` y
   `--output ARCHIVO` en ambos subcomandos.
-- [ ] **Paginador para salidas largas.** `rich` puede enviar la salida a `less` cuando hay
-  cientos de entradas.
+- [x] **Paginador para salidas largas.** Resuelto: la salida va a `less` cuando no cabe en
+  pantalla y hay terminal; `--no-pager` lo desactiva.
 - [ ] **Workflow de publicación.** Que al crear una etiqueta `vX.Y.Z` se construya el wheel y
   se adjunte automáticamente a la release de GitHub.
 - [ ] **Autocompletado de shell.** `argparse` no lo proporciona; con `argcomplete` se
