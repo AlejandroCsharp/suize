@@ -1,9 +1,11 @@
 """Tests de validación de entradas del usuario."""
 
+import socket
 from datetime import datetime
 
 import pytest
 
+from suize.utils import validators
 from suize.utils.validators import (
     is_loopback,
     is_valid_target,
@@ -145,3 +147,48 @@ def test_validate_positive_int() -> None:
         validate_positive_int("0", "Las líneas")
     with pytest.raises(ValueError, match="número entero"):
         validate_positive_int("diez")
+
+
+# ------------------------------------------------------------------ objetivos por nombre
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("servidor.lan", True),
+        ("scanme.nmap.org", True),
+        ("localhost", True),
+        ("127.0.0.1", False),
+        ("::1", False),
+        ("192.168.1.0/24", False),
+        ("10.0.0.1-20", False),
+        ("192.168.1.*", False),
+        ("192.168.1.300", False),
+    ],
+)
+def test_is_hostname_target(value: str, expected: bool) -> None:
+    assert validators.is_hostname_target(value) is expected
+
+
+def _resolver(*families: int) -> validators.Resolver:
+    def resolve(host: str, port: object, **kwargs: object) -> list[tuple[object, ...]]:
+        return [(family, socket.SOCK_STREAM, 6, "", ("::1", 0)) for family in families]
+
+    return resolve
+
+
+def test_resolves_only_to_ipv6_with_just_aaaa_records() -> None:
+    assert validators.resolves_only_to_ipv6("x.lan", resolver=_resolver(socket.AF_INET6)) is True
+
+
+def test_resolves_only_to_ipv6_is_false_for_dual_stack() -> None:
+    resolver = _resolver(socket.AF_INET6, socket.AF_INET)
+
+    assert validators.resolves_only_to_ipv6("x.lan", resolver=resolver) is False
+
+
+def test_resolves_only_to_ipv6_swallows_resolution_errors() -> None:
+    def failing(host: str, port: object, **kwargs: object) -> list[tuple[object, ...]]:
+        raise socket.gaierror(-2, "Name or service not known")
+
+    assert validators.resolves_only_to_ipv6("x.lan", resolver=failing) is False

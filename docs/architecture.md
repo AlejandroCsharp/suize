@@ -161,9 +161,14 @@ dentro de ese módulo (con `monkeypatch`) para que todo el resto del código cor
 rangos de Nmap (`192.168.1.1-50`) y hostnames válidos. `validate_unit` hace lo mismo con los
 nombres de unidad.
 
-**IPv6 automático.** Nmap rechaza las direcciones y redes IPv6 si no se le pasa `-6` (las
-ignora y escanea cero hosts). `nmap_runner.build_command` añade la opción cuando
-`validators.is_ipv6_target` detecta un objetivo IPv6, así el usuario no necesita saberlo.
+**IPv6 automático.** Nmap rechaza los objetivos IPv6 si no se le pasa `-6` (los ignora y
+escanea cero hosts), así que Suize añade la opción por su cuenta. La decisión está partida en
+dos para no mezclar lógica pura con acceso a la red: `nmap_runner.needs_ipv6` resuelve el caso
+—consultando el DNS solo si el objetivo es un nombre de host, nunca para una IP, red o rango—
+y `build_command` se limita a recibir el resultado como un booleano. Por eso construir el
+comando sigue siendo comprobable sin red, y los tests del resolutor inyectan un doble en lugar
+de depender del DNS. Un nombre con registros A y AAAA no activa `-6`: Nmap usa IPv4 y funciona;
+y si el nombre no resuelve, quien informa del error es Nmap con su propio mensaje.
 
 **Los parsers no imprimen.** `nmap_parser` y `journal_parser` reciben texto y devuelven
 dataclasses o lanzan una excepción propia (`NmapParseError`, `JournalParseError`). No saben que

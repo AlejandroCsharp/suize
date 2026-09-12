@@ -6,7 +6,10 @@ español listo para mostrar al usuario; las ``is_*`` devuelven ``bool``.
 
 import ipaddress
 import re
+import socket
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
 from suize.models.log_entry import PRIORITY_NAMES
 
@@ -55,6 +58,43 @@ def is_ipv6_target(value: str) -> bool:
         return ipaddress.ip_address(candidate).version == 6
     except ValueError:
         return False
+
+
+#: Firma de :func:`socket.getaddrinfo`, inyectable para poder probar sin red.
+Resolver = Callable[..., list[tuple[Any, ...]]]
+
+
+def is_hostname_target(value: str) -> bool:
+    """``True`` si el objetivo es un nombre de host, no una IP, red o rango."""
+    target = value.strip()
+    if is_valid_ip(target) or is_valid_network(target) or is_valid_nmap_range(target):
+        return False
+    # "192.168.1.300" encaja en el formato de hostname pero es una IPv4 mal escrita.
+    return _IPV4_LIKE_RE.match(target) is None and is_valid_hostname(target)
+
+
+def resolves_only_to_ipv6(host: str, *, resolver: Resolver | None = None) -> bool:
+    """``True`` si ``host`` resuelve a direcciones IPv6 y a ninguna IPv4.
+
+    Un nombre con registros A y AAAA devuelve ``False``: Nmap usará IPv4 por
+    defecto y funcionará sin ``-6``.
+
+    Si el nombre no resuelve se devuelve ``False`` y no se lanza nada: quien
+    debe informar del error es Nmap, con su propio mensaje.
+
+    La consulta es bloqueante y usa los tiempos de espera del resolutor del
+    sistema (unos segundos en el peor caso, cuando el DNS no responde).
+    ``resolver`` permite inyectar un doble en los tests; por defecto se usa
+    :func:`socket.getaddrinfo`.
+    """
+    resolve = resolver or socket.getaddrinfo
+    try:
+        results = resolve(host, None, proto=socket.IPPROTO_TCP)
+    except OSError:
+        # gaierror (no resuelve) y cualquier otro fallo de red.
+        return False
+    families = {entry[0] for entry in results}
+    return bool(families) and families == {socket.AF_INET6}
 
 
 def is_valid_network(value: str) -> bool:
