@@ -38,6 +38,7 @@ from suize.ui.export import (
     write_logs_csv,
     write_scan_csv,
 )
+from suize.ui.pager import paged
 from suize.ui.render_nmap import render_correlations, render_hosts
 from suize.ui.theme import make_console, message
 from suize.utils.deps import (
@@ -83,6 +84,42 @@ def _positive_int(value: str) -> int:
     return number
 
 
+#: Opciones válidas tanto antes como después del subcomando.
+GLOBAL_OPTION_HELP = {
+    "--config": "archivo TOML de configuración propio",
+    "--no-color": "salida sin colores",
+    "--no-pager": "no enviar las salidas largas a less",
+}
+
+
+def _add_global_options(parser: argparse.ArgumentParser, *, inherit: bool = False) -> None:
+    """Añade las opciones globales a ``parser``.
+
+    Con ``inherit`` se preparan para repetirlas dentro de cada subcomando: sin
+    ayuda (ya aparecen en la general) y con ``SUPPRESS`` como valor por defecto,
+    imprescindible para que el subparser no pise con un ``False`` lo que el
+    usuario indicó antes del subcomando.
+    """
+    default = argparse.SUPPRESS if inherit else None
+    for flag, help_text in GLOBAL_OPTION_HELP.items():
+        help_shown = argparse.SUPPRESS if inherit else help_text
+        if flag == "--config":
+            parser.add_argument(
+                flag,
+                type=Path,
+                metavar="ARCHIVO",
+                default=default,
+                help=help_shown,
+            )
+        else:
+            parser.add_argument(
+                flag,
+                action="store_true",
+                default=default if inherit else False,
+                help=help_shown,
+            )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="suize",
@@ -91,14 +128,18 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument(
-        "--config", type=Path, metavar="ARCHIVO", help="archivo TOML de configuración propio"
-    )
-    parser.add_argument("--no-color", action="store_true", help="salida sin colores")
+    _add_global_options(parser)
+    # Las mismas opciones, repetidas en cada subcomando para aceptarlas también
+    # después de él: 'suize logs --no-pager' es lo que uno escribe por instinto.
+    # default=SUPPRESS es imprescindible: sin él, el subparser sobrescribiría con
+    # su propio valor por defecto lo que se indicó antes del subcomando.
+    inherited = argparse.ArgumentParser(add_help=False)
+    _add_global_options(inherited, inherit=True)
     sub = parser.add_subparsers(dest="command", metavar="{scan,logs}")
 
     scan = sub.add_parser(
         "scan",
+        parents=[inherited],
         help="escanea un objetivo con Nmap (-sV)",
         description="Escanea un objetivo con `nmap -sV` y muestra los puertos abiertos.",
     )
@@ -139,6 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     logs = sub.add_parser(
         "logs",
+        parents=[inherited],
         help="consulta los logs del sistema con journalctl",
         description="Consulta journalctl con filtros combinables.",
     )
@@ -304,23 +346,28 @@ def _cmd_scan(
             return EXIT_ERROR
         _report_written(err, args.output, rows, args.quiet)
     else:
-        render_hosts(out, hosts, target=target)
-        if args.correlate and correlation_error is None:
-            render_correlations(out, correlations)
-            if units:
-                menus.show_logs(
-                    out,
-                    entries,
-                    settings=settings,
-                    permissions=permissions,
-                    time_range=time_range,
-                    title=f"Logs de {', '.join(units)}",
-                    limit=settings.log_lines,
-                )
-            elif correlations:
-                out.print(
-                    message("info", "Ninguna unidad systemd coincide con los servicios detectados.")
-                )
+        # Aquí no hay preguntas de por medio, así que todo el informe cabe en
+        # un único paginador en lugar de uno por sección.
+        with paged(out, enabled=not args.no_pager):
+            render_hosts(out, hosts, target=target)
+            if args.correlate and correlation_error is None:
+                render_correlations(out, correlations)
+                if units:
+                    menus.show_logs(
+                        out,
+                        entries,
+                        settings=settings,
+                        permissions=permissions,
+                        time_range=time_range,
+                        title=f"Logs de {', '.join(units)}",
+                        limit=settings.log_lines,
+                    )
+                elif correlations:
+                    out.print(
+                        message(
+                            "info", "Ninguna unidad systemd coincide con los servicios detectados."
+                        )
+                    )
 
     if correlation_error is not None:
         err.print(message("error", f"No se pudo correlacionar con los logs: {correlation_error}"))
@@ -398,15 +445,16 @@ def _cmd_logs(
         _report_written(err, args.output, len(entries), args.quiet)
         return EXIT_OK
 
-    menus.show_logs(
-        out,
-        entries,
-        settings=settings,
-        permissions=permissions,
-        time_range=time_range,
-        title=f"Logs de {', '.join(units)}" if units else "Logs del sistema",
-        limit=query.lines,
-    )
+    with paged(out, enabled=not args.no_pager):
+        menus.show_logs(
+            out,
+            entries,
+            settings=settings,
+            permissions=permissions,
+            time_range=time_range,
+            title=f"Logs de {', '.join(units)}" if units else "Logs del sistema",
+            limit=query.lines,
+        )
     return EXIT_OK
 
 
@@ -416,6 +464,8 @@ def _cmd_interactive(
     permissions: PermissionStatus,
     out: Console,
     err: Console,
+    *,
+    pager: bool = True,
 ) -> int:
     if not _is_interactive_terminal():
         err.print(
@@ -426,7 +476,13 @@ def _cmd_interactive(
             )
         )
         return EXIT_USAGE
-    ctx = menus.AppContext(console=out, settings=settings, deps=deps, permissions=permissions)
+    ctx = menus.AppContext(
+        console=out,
+        settings=settings,
+        deps=deps,
+        permissions=permissions,
+        pager=pager,
+    )
     return menus.run_menu(ctx)
 
 
@@ -453,7 +509,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_scan(args, settings, deps, permissions, out, err)
         if args.command == "logs":
             return _cmd_logs(args, settings, deps, permissions, out, err)
-        return _cmd_interactive(settings, deps, permissions, out, err)
+        return _cmd_interactive(settings, deps, permissions, out, err, pager=not args.no_pager)
     except KeyboardInterrupt:
         err.print(message("warning", "Interrumpido por el usuario."))
         return EXIT_INTERRUPTED

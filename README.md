@@ -345,12 +345,16 @@ con números o nombres: `-p 0..3`, `-p warning..info`.
 
 ### Opciones globales
 
-Van **antes** del subcomando: `suize --no-color logs --since 1h`.
+`--config`, `--no-color` y `--no-pager` funcionan en cualquiera de las dos posiciones, antes o
+después del subcomando: `suize --no-color logs --since 1h` y `suize logs --since 1h --no-color`
+son equivalentes. `--version` y `--help` sin subcomando muestran la información general;
+después de uno, `--help` muestra la ayuda de ese subcomando.
 
 | Opción              | Descripción                                          |
 |---------------------|------------------------------------------------------|
 | `--config ARCHIVO`  | Usa un archivo de configuración TOML propio          |
 | `--no-color`        | Desactiva los colores                                |
+| `--no-pager`        | No envía las salidas largas a `less`                 |
 | `-V`, `--version`   | Muestra la versión                                   |
 | `-h`, `--help`      | Muestra la ayuda                                     |
 
@@ -395,6 +399,25 @@ consultan con `docker logs`.
 
 La correlación usa siempre el journal **de la máquina local**. Si el objetivo es otro equipo,
 Suize lo advierte, porque los logs mostrados no pertenecen a ese equipo.
+
+## Paginación
+
+Cuando el resultado no cabe en la pantalla, Suize lo envía a `less` (o al paginador de
+`$PAGER`), igual que hace `journalctl`. Sales con `q` y buscas con `/`.
+
+Solo ocurre si hay una terminal interactiva y el contenido supera la altura de la ventana: una
+consulta de tres líneas se imprime directamente, y una salida redirigida a un archivo o a una
+tubería nunca se pagina, para no romper los scripts.
+
+```bash
+suize logs --since 7d                # se pagina si hay muchas entradas
+suize logs --since 7d --no-pager     # de corrido, como antes
+suize logs --since 7d > informe.txt  # a un archivo: nunca se pagina
+```
+
+Los colores se conservan dentro del paginador. Si defines tus propias opciones en `$LESS`,
+Suize las respeta; si no, usa `FRX`. Con `--format json` o `csv` no interviene: esos formatos
+están pensados para procesarse.
 
 ## Exportar resultados
 
@@ -692,7 +715,7 @@ suize/
 │   ├── models/                 Dataclasses del dominio: Host, Port, LogEntry, LogSummary
 │   ├── utils/                  subprocess, validación, rangos de tiempo, dependencias, permisos
 │   ├── core/                   Ejecución y parseo de Nmap/journalctl, correlación
-│   └── ui/                     Menús (questionary) y tablas (rich)
+│   └── ui/                     Menús (questionary), tablas (rich), paginador y exportación
 ├── tests/
 │   ├── fixtures/               Salidas reales de Nmap y journalctl
 │   ├── unit/                   Parsers, validadores, rangos de tiempo, correlación

@@ -17,6 +17,7 @@ from suize.core.journal_reader import JournalQuery
 from suize.models.host import Host
 from suize.models.log_entry import LogEntry
 from suize.ui import prompts
+from suize.ui.pager import paged
 from suize.ui.render_logs import render_logs
 from suize.ui.render_nmap import render_correlations, render_hosts
 from suize.ui.theme import APP_NAME, ICONS, TAGLINE, message
@@ -43,6 +44,7 @@ class AppContext:
     settings: Settings
     deps: Mapping[str, Dependency]
     permissions: PermissionStatus
+    pager: bool = True
 
     def has(self, *names: str) -> bool:
         """``True`` si todas las dependencias indicadas están instaladas."""
@@ -158,7 +160,8 @@ def _scan_step(ctx: AppContext) -> tuple[str, list[Host]]:
     target = prompts.ask_target(ctx.settings.default_target)
     profile = prompts.ask_scan_profile(nmap_runner.SCAN_PROFILES, ctx.settings.scan_profile)
     hosts = execute_scan(ctx.console, target, profile=profile, timeout=ctx.settings.scan_timeout)
-    render_hosts(ctx.console, hosts, target=target)
+    with paged(ctx.console, enabled=ctx.pager):
+        render_hosts(ctx.console, hosts, target=target)
     return target, hosts
 
 
@@ -166,7 +169,8 @@ def _correlation_step(ctx: AppContext, target: str, hosts: Sequence[Host]) -> No
     if not is_loopback(target):
         ctx.console.print(message("warning", REMOTE_CORRELATION_WARNING))
     correlations = find_correlations(ctx.console, hosts, timeout=ctx.settings.journal_timeout)
-    render_correlations(ctx.console, correlations)
+    with paged(ctx.console, enabled=ctx.pager):
+        render_correlations(ctx.console, correlations)
     units = correlator.units_to_query(correlations)
     if not units:
         ctx.console.print(
@@ -176,15 +180,16 @@ def _correlation_step(ctx: AppContext, target: str, hosts: Sequence[Host]) -> No
     time_range = prompts.ask_time_range(ctx.settings.time_presets, ctx.settings.default_time_preset)
     query = JournalQuery(units=tuple(units), time_range=time_range, lines=ctx.settings.log_lines)
     entries = execute_logs(ctx.console, query, timeout=ctx.settings.journal_timeout)
-    show_logs(
-        ctx.console,
-        entries,
-        settings=ctx.settings,
-        permissions=ctx.permissions,
-        time_range=time_range,
-        title=f"Logs de {', '.join(units)}",
-        limit=query.lines,
-    )
+    with paged(ctx.console, enabled=ctx.pager):
+        show_logs(
+            ctx.console,
+            entries,
+            settings=ctx.settings,
+            permissions=ctx.permissions,
+            time_range=time_range,
+            title=f"Logs de {', '.join(units)}",
+            limit=query.lines,
+        )
 
 
 def scan_flow(ctx: AppContext) -> None:
@@ -211,15 +216,16 @@ def logs_flow(ctx: AppContext) -> None:
         lines=lines,
     )
     entries = execute_logs(ctx.console, query, timeout=ctx.settings.journal_timeout)
-    show_logs(
-        ctx.console,
-        entries,
-        settings=ctx.settings,
-        permissions=ctx.permissions,
-        time_range=time_range,
-        title=f"Logs de {unit}" if unit else "Logs del sistema",
-        limit=lines,
-    )
+    with paged(ctx.console, enabled=ctx.pager):
+        show_logs(
+            ctx.console,
+            entries,
+            settings=ctx.settings,
+            permissions=ctx.permissions,
+            time_range=time_range,
+            title=f"Logs de {unit}" if unit else "Logs del sistema",
+            limit=lines,
+        )
 
 
 def correlate_flow(ctx: AppContext) -> None:
