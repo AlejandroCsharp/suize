@@ -251,6 +251,7 @@ suize scan [TARGET] [--profile {fast,standard,full}] [--correlate] [--since RANG
 |------------------|-----------------------------------|-----------------------------------------------|
 | Dirección IPv4   | `192.168.1.10`                    |                                               |
 | Dirección IPv6   | `::1`, `fe80::1`                  | Suize añade `-6` a Nmap automáticamente       |
+| Nombre solo IPv6 | `ipv6.ejemplo.com`                | También añade `-6`, tras resolver el nombre   |
 | Red CIDR         | `192.168.1.0/24`, `2001:db8::/64` |                                               |
 | Rango de Nmap    | `10.0.0.1-20`, `"192.168.1.*"`    | El comodín `*` debe ir entre comillas en la shell |
 | Nombre de host   | `servidor.lan`, `scanme.nmap.org` |                                               |
@@ -642,8 +643,6 @@ La terminal no tiene una fuente con esos símbolos. En Debian, Ubuntu o Linux Mi
 - **Correlación local**: los logs corresponden siempre a la máquina donde se ejecuta Suize.
 - **Asociaciones predefinidas**: la correlación reconoce los servicios de la tabla anterior;
   otros servicios requieren ampliarla en el código.
-- **IPv6 por nombre**: `-6` se añade automáticamente para direcciones y redes IPv6, pero no
-  para nombres de host que solo resuelven a IPv6.
 
 ## Desarrollo
 

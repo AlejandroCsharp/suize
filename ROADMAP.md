@@ -49,8 +49,8 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
 
 ## Prioridad baja
 
-- [ ] **IPv6 por nombre de host.** La opción `-6` se añade automáticamente cuando el objetivo
-  es una dirección o red IPv6 literal, pero no cuando es un nombre que solo resuelve a IPv6.
+- [x] **IPv6 por nombre de host.** Resuelto: `nmap_runner.needs_ipv6` consulta el DNS cuando
+  el objetivo es un nombre y añade `-6` si solo resuelve a IPv6.
 - [x] **Exportación a CSV o a un archivo.** Resuelto: `--format {table,json,csv}` y
   `--output ARCHIVO` en ambos subcomandos.
 - [ ] **Paginador para salidas largas.** `rich` puede enviar la salida a `less` cuando hay

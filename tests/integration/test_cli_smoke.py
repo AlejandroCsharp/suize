@@ -8,6 +8,7 @@ respuestas salen de ``tests/fixtures``.
 import csv
 import io
 import json
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -597,3 +598,52 @@ def test_written_notice_uses_the_singular_for_one_row(
     _, _, err = run_cli(capsys, "logs", "--format", "csv", "--output", str(destination))
 
     assert "(1 fila)" in err
+
+
+def test_scan_of_an_ipv6_only_hostname_passes_dash_6_to_nmap(
+    fake_system: FakeSystem, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """El nombre resuelve solo a AAAA: Nmap debe recibir -6."""
+
+    def only_ipv6(host: str, port: object, **kwargs: object) -> list[tuple[Any, ...]]:
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", only_ipv6)
+
+    code, _, _ = run_cli(capsys, "scan", "solo-ipv6.lan", "-q")
+
+    assert code == cli.EXIT_OK
+    nmap_call = next(call for call in fake_system.calls if call[0] == "nmap")
+    assert "-6" in nmap_call
+
+
+def test_scan_of_a_dual_stack_hostname_does_not_pass_dash_6(
+    fake_system: FakeSystem, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def dual_stack(host: str, port: object, **kwargs: object) -> list[tuple[Any, ...]]:
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.10", 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 0)),
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", dual_stack)
+
+    run_cli(capsys, "scan", "dual.lan", "-q")
+
+    nmap_call = next(call for call in fake_system.calls if call[0] == "nmap")
+    assert "-6" not in nmap_call
+
+
+def test_scan_of_an_ipv4_address_never_resolves(
+    fake_system: FakeSystem, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Una IP literal no debe provocar ninguna consulta DNS."""
+
+    def boom(*args: object, **kwargs: object) -> object:
+        raise AssertionError("no debería consultarse el DNS para una IP")
+
+    monkeypatch.setattr(socket, "getaddrinfo", boom)
+
+    code, _, _ = run_cli(capsys, "scan", "127.0.0.1", "-q")
+
+    assert code == cli.EXIT_OK

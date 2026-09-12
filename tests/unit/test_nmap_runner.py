@@ -1,11 +1,13 @@
-"""Tests de la construcción del comando de Nmap (sin ejecutar Nmap)."""
+"""Tests de la construcción del comando de Nmap (sin ejecutar Nmap ni tocar la red)."""
 
+import socket
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from suize.core.nmap_runner import SCAN_PROFILES, build_command
-from suize.utils.validators import is_ipv6_target
+from suize.core.nmap_runner import SCAN_PROFILES, build_command, needs_ipv6
+from suize.utils.validators import Resolver, is_ipv6_target
 
 XML = Path("/tmp/scan.xml")
 
@@ -75,3 +77,85 @@ def test_ipv4_and_hostname_targets_do_not_use_dash_6(target: str) -> None:
 )
 def test_is_ipv6_target(value: str, expected: bool) -> None:
     assert is_ipv6_target(value) is expected
+
+
+# --------------------------------------------------------------------- IPv6 por nombre
+
+
+def fake_resolver(*families: int) -> Resolver:
+    """Devuelve un doble de ``socket.getaddrinfo`` con las familias indicadas."""
+
+    def resolve(host: str, port: object, **kwargs: object) -> list[tuple[Any, ...]]:
+        return [(family, socket.SOCK_STREAM, 6, "", ("::1", 0)) for family in families]
+
+    return resolve
+
+
+def failing_resolver(host: str, port: object, **kwargs: object) -> list[tuple[Any, ...]]:
+    raise socket.gaierror(-2, "Name or service not known")
+
+
+def test_hostname_that_only_resolves_to_ipv6_needs_the_flag() -> None:
+    assert needs_ipv6("solo-ipv6.lan", resolver=fake_resolver(socket.AF_INET6)) is True
+
+
+def test_dual_stack_hostname_does_not_need_the_flag() -> None:
+    """Con registros A y AAAA, Nmap usa IPv4 y funciona sin -6."""
+    resolver = fake_resolver(socket.AF_INET, socket.AF_INET6)
+
+    assert needs_ipv6("dual.lan", resolver=resolver) is False
+
+
+def test_ipv4_only_hostname_does_not_need_the_flag() -> None:
+    assert needs_ipv6("solo-ipv4.lan", resolver=fake_resolver(socket.AF_INET)) is False
+
+
+def test_hostname_that_does_not_resolve_does_not_need_the_flag() -> None:
+    """Del error debe informar Nmap, con su propio mensaje."""
+    assert needs_ipv6("no-existe.lan", resolver=failing_resolver) is False
+
+
+def test_hostname_with_no_records_does_not_need_the_flag() -> None:
+    assert needs_ipv6("vacio.lan", resolver=fake_resolver()) is False
+
+
+@pytest.mark.parametrize("target", ["::1", "2001:db8::/64", " fe80::1 "])
+def test_ipv6_literals_do_not_consult_dns(target: str) -> None:
+    """Se deciden por su formato: el resolutor no debe llegar a llamarse."""
+    llamadas: list[str] = []
+
+    def spy(host: str, port: object, **kwargs: object) -> list[tuple[Any, ...]]:
+        llamadas.append(host)
+        return []
+
+    assert needs_ipv6(target, resolver=spy) is True
+    assert llamadas == []
+
+
+@pytest.mark.parametrize("target", ["127.0.0.1", "192.168.1.0/24", "10.0.0.1-20", "192.168.1.*"])
+def test_addresses_and_ranges_do_not_consult_dns(target: str) -> None:
+    llamadas: list[str] = []
+
+    def spy(host: str, port: object, **kwargs: object) -> list[tuple[Any, ...]]:
+        llamadas.append(host)
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 0))]
+
+    assert needs_ipv6(target, resolver=spy) is False
+    assert llamadas == []
+
+
+def test_force_ipv6_adds_the_flag_to_a_hostname() -> None:
+    cmd = build_command("solo-ipv6.lan", XML, force_ipv6=True)
+
+    assert cmd[:3] == ["nmap", "-6", "-sV"]
+
+
+def test_build_command_never_resolves_by_itself(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Construir el comando debe seguir siendo una operación sin red."""
+
+    def boom(*args: object, **kwargs: object) -> object:
+        raise AssertionError("build_command no debe consultar el DNS")
+
+    monkeypatch.setattr(socket, "getaddrinfo", boom)
+
+    assert "-6" not in build_command("ejemplo.lan", XML)
