@@ -11,12 +11,10 @@ toda la lógica de arranque vive en :func:`main`.
 """
 
 import argparse
-import json
 import os
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +28,16 @@ from suize.core.journal_reader import JournalQuery
 from suize.models.host import Host
 from suize.models.log_entry import LogEntry, LogSummary
 from suize.ui import menus
+from suize.ui.export import (
+    OUTPUT_FORMATS,
+    correlation_to_json,
+    dump_json,
+    entry_to_json,
+    open_output,
+    units_by_port,
+    write_logs_csv,
+    write_scan_csv,
+)
 from suize.ui.render_nmap import render_correlations, render_hosts
 from suize.ui.theme import make_console, message
 from suize.utils.deps import (
@@ -113,7 +121,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--since", metavar="RANGO", help="rango temporal para --correlate (por defecto, el preset)"
     )
     scan.add_argument("--save-xml", type=Path, metavar="ARCHIVO", help="guarda una copia del XML")
-    scan.add_argument("--json", action="store_true", help="salida JSON por stdout")
+    scan.add_argument(
+        "--format",
+        choices=OUTPUT_FORMATS,
+        default="table",
+        help="formato de salida (por defecto: table)",
+    )
+    scan.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        metavar="ARCHIVO",
+        help="escribe el resultado en un archivo en vez de stdout",
+    )
+    scan.add_argument("--json", action="store_true", help="atajo de --format json")
     scan.add_argument("-q", "--quiet", action="store_true", help="oculta avisos informativos")
 
     logs = sub.add_parser(
@@ -142,7 +163,20 @@ def build_parser() -> argparse.ArgumentParser:
     logs.add_argument(
         "-n", "--lines", type=_positive_int, metavar="N", help="máximo de entradas a mostrar"
     )
-    logs.add_argument("--json", action="store_true", help="salida JSON por stdout")
+    logs.add_argument(
+        "--format",
+        choices=OUTPUT_FORMATS,
+        default="table",
+        help="formato de salida (por defecto: table)",
+    )
+    logs.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        metavar="ARCHIVO",
+        help="escribe el resultado en un archivo en vez de stdout",
+    )
+    logs.add_argument("--json", action="store_true", help="atajo de --format json")
     logs.add_argument("-q", "--quiet", action="store_true", help="oculta avisos informativos")
     return parser
 
@@ -154,30 +188,15 @@ def _is_interactive_terminal() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
-def _json_default(value: object) -> str:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    raise TypeError(f"Tipo no serializable: {type(value).__name__}")
+def _resolve_format(args: argparse.Namespace) -> str:
+    """``--json`` se mantiene como sinónimo de ``--format json``."""
+    return "json" if args.json else str(args.format)
 
 
-def _emit_json(payload: Mapping[str, Any]) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2, default=_json_default))
-    sys.stdout.write("\n")
-
-
-def _entry_to_json(entry: LogEntry) -> dict[str, Any]:
-    return {**asdict(entry), "priority_name": entry.priority_name}
-
-
-def _correlation_to_json(item: Correlation) -> dict[str, Any]:
-    return {
-        "host": item.host,
-        "port": item.port.number,
-        "protocol": item.port.protocol,
-        "service": item.port.service,
-        "candidates": list(item.candidates),
-        "units": list(item.units),
-    }
+def _report_written(err: Console, path: Path | None, rows: int, quiet: bool) -> None:
+    if path is not None and not quiet:
+        plural = "fila" if rows == 1 else "filas"
+        err.print(message("info", f"Escrito {path} ({rows} {plural})."))
 
 
 def _check_required(err: Console, deps: Mapping[str, Dependency], names: Sequence[str]) -> bool:
@@ -254,14 +273,36 @@ def _cmd_scan(
         except menus.USER_ERRORS as exc:
             correlation_error = exc
 
-    if args.json:
-        payload: dict[str, Any] = {"target": target, "hosts": [asdict(host) for host in hosts]}
-        if args.correlate:
-            payload["correlations"] = [_correlation_to_json(item) for item in correlations]
-            payload["units"] = units
-            payload["logs"] = [_entry_to_json(entry) for entry in entries]
-            payload["error"] = str(correlation_error) if correlation_error else None
-        _emit_json(payload)
+    output_format = _resolve_format(args)
+    if output_format != "table":
+        try:
+            with open_output(args.output) as stream:
+                if output_format == "json":
+                    payload: dict[str, Any] = {
+                        "target": target,
+                        "hosts": [asdict(host) for host in hosts],
+                    }
+                    if args.correlate:
+                        payload["correlations"] = [
+                            correlation_to_json(item) for item in correlations
+                        ]
+                        payload["units"] = units
+                        payload["logs"] = [entry_to_json(entry) for entry in entries]
+                        payload["error"] = str(correlation_error) if correlation_error else None
+                    dump_json(payload, stream)
+                    rows = len(hosts)
+                else:
+                    # La correlación solo añade una columna si se pidió --correlate.
+                    correlated = units_by_port(correlations) if args.correlate else None
+                    rows = write_scan_csv(hosts, stream, correlated=correlated)
+        except BrokenPipeError:
+            # Tubería cerrada por el consumidor (p. ej. `suize ... | head`).
+            # Es un OSError, pero lo gestiona main(); aquí solo se deja pasar.
+            raise
+        except OSError as exc:
+            err.print(message("error", f"No se pudo escribir {args.output}: {exc}"))
+            return EXIT_ERROR
+        _report_written(err, args.output, rows, args.quiet)
     else:
         render_hosts(out, hosts, target=target)
         if args.correlate and correlation_error is None:
@@ -324,22 +365,37 @@ def _cmd_logs(
         err.print(message("error", str(exc)))
         return EXIT_ERROR
 
-    if args.json:
-        summary = LogSummary.from_entries(entries, top_n=settings.top_units)
-        _emit_json(
-            {
-                "query": {
-                    "units": list(units),
-                    "priority": priority,
-                    "since": time_range.since if time_range else None,
-                    "until": time_range.until if time_range else None,
-                    "grep": query.grep,
-                    "lines": query.lines,
-                },
-                "summary": asdict(summary),
-                "entries": [_entry_to_json(entry) for entry in entries],
-            }
-        )
+    output_format = _resolve_format(args)
+    if output_format != "table":
+        try:
+            with open_output(args.output) as stream:
+                if output_format == "json":
+                    summary = LogSummary.from_entries(entries, top_n=settings.top_units)
+                    dump_json(
+                        {
+                            "query": {
+                                "units": list(units),
+                                "priority": priority,
+                                "since": time_range.since if time_range else None,
+                                "until": time_range.until if time_range else None,
+                                "grep": query.grep,
+                                "lines": query.lines,
+                            },
+                            "summary": asdict(summary),
+                            "entries": [entry_to_json(entry) for entry in entries],
+                        },
+                        stream,
+                    )
+                else:
+                    write_logs_csv(entries, stream)
+        except BrokenPipeError:
+            # Tubería cerrada por el consumidor (p. ej. `suize ... | head`).
+            # Es un OSError, pero lo gestiona main(); aquí solo se deja pasar.
+            raise
+        except OSError as exc:
+            err.print(message("error", f"No se pudo escribir {args.output}: {exc}"))
+            return EXIT_ERROR
+        _report_written(err, args.output, len(entries), args.quiet)
         return EXIT_OK
 
     menus.show_logs(

@@ -234,7 +234,9 @@ suize scan [TARGET] [--profile {fast,standard,full}] [--correlate] [--since RANG
 | `--correlate`       | Después del escaneo, muestra la correlación y los logs de los servicios encontrados. |
 | `--since RANGO`     | Rango temporal de los logs de `--correlate`. Por defecto, el preset configurado (`1h`). |
 | `--save-xml ARCHIVO`| Guarda una copia del XML original de Nmap.                                        |
-| `--json`            | Imprime el resultado en JSON por la salida estándar.                              |
+| `--format`          | `table` (por defecto), `json` o `csv`. Ver [Exportar resultados](#exportar-resultados). |
+| `-o`, `--output ARCHIVO` | Escribe el resultado en un archivo en lugar de la salida estándar.           |
+| `--json`            | Atajo de `--format json`.                                                         |
 | `-q`, `--quiet`     | Oculta los avisos informativos (los errores se muestran siempre).                 |
 
 | Perfil     | Argumentos de Nmap | Puertos analizados              | Uso típico                          |
@@ -277,7 +279,9 @@ suize logs [-u UNIDAD] [-p PRIORIDAD] [--since RANGO] [--until FECHA]
 | `--until FECHA`         | Fin del intervalo, como fecha exacta.                                    |
 | `-g`, `--grep REGEX`    | Solo mensajes que coincidan con la expresión regular.                    |
 | `-n`, `--lines N`       | Número máximo de entradas. Por defecto, `logs.lines` (200).              |
-| `--json`                | Imprime el resultado en JSON por la salida estándar.                     |
+| `--format`              | `table` (por defecto), `json` o `csv`.                                   |
+| `-o`, `--output ARCHIVO`| Escribe el resultado en un archivo en lugar de la salida estándar.       |
+| `--json`                | Atajo de `--format json`.                                                |
 | `-q`, `--quiet`         | Oculta los avisos informativos.                                          |
 
 Todos los filtros se combinan entre sí (se deben cumplir todos). Sin `--since` ni `--until`
@@ -390,6 +394,39 @@ consultan con `docker logs`.
 
 La correlación usa siempre el journal **de la máquina local**. Si el objetivo es otro equipo,
 Suize lo advierte, porque los logs mostrados no pertenecen a ese equipo.
+
+## Exportar resultados
+
+Ambos subcomandos aceptan `--format` y `--output`:
+
+| Formato | Contenido                                                              |
+|---------|------------------------------------------------------------------------|
+| `table` | Tablas con color para leer en la terminal (por defecto)                |
+| `json`  | Estructura completa, pensada para `jq` y scripts                       |
+| `csv`   | Una fila por puerto o por entrada de log, para hojas de cálculo        |
+
+```bash
+suize scan 192.168.1.0/24 --format csv -o puertos.csv
+suize logs -p err --since 7d --format csv -o errores.csv
+suize scan 127.0.0.1 --format csv          # por stdout, para encadenar
+```
+
+Sin `--output`, el resultado sale por la salida estándar; con él, se escribe en el archivo y
+se confirma por la salida de error (se puede silenciar con `-q`).
+
+**Estructura del CSV de `scan`**: una fila por puerto, repitiendo en cada una las columnas del
+host (`direccion`, `hostname`, `estado_host`, `mac`), seguidas de las del puerto (`puerto`,
+`protocolo`, `estado`, `servicio`, `producto`, `version`, `info_extra`). Los hosts sin puertos
+conservan una fila con esas celdas vacías, para que no desaparezcan del archivo. Con
+`--correlate` se añade una columna `unidades` con las unidades systemd asociadas, separadas
+por punto y coma.
+
+**Estructura del CSV de `logs`**: una fila por entrada, con las columnas `fecha` (en formato
+ISO), `prioridad`, `prioridad_nombre`, `unidad`, `hostname`, `pid` y `mensaje`.
+
+Los archivos se escriben en UTF-8, con comas como separador y saltos de línea Unix. Si vas a
+abrirlos en Excel y los acentos se ven mal, importa el archivo indicando UTF-8 en lugar de
+abrirlo con doble clic.
 
 ## Salida JSON
 

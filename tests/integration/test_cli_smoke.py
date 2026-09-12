@@ -5,16 +5,19 @@ con ``monkeypatch``: nmap, journalctl y systemctl nunca se ejecutan de verdad y 
 respuestas salen de ``tests/fixtures``.
 """
 
+import csv
+import io
 import json
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from suize import __version__, cli
 from suize.config.settings import load_settings
-from suize.ui import menus, prompts
+from suize.ui import export, menus, prompts
 from suize.utils import shell
 from suize.utils.deps import check_dependencies
 from suize.utils.permissions import PermissionStatus
@@ -433,10 +436,10 @@ def test_broken_pipe_is_handled_quietly(
     """`suize scan ... --json | head` no debe terminar con una traza de BrokenPipeError."""
     silenced: list[bool] = []
 
-    def closed_pipe(payload: object) -> None:
+    def closed_pipe(payload: object, stream: object) -> None:
         raise BrokenPipeError
 
-    monkeypatch.setattr(cli, "_emit_json", closed_pipe)
+    monkeypatch.setattr(cli, "dump_json", closed_pipe)
     # No se toca el stdout real del proceso de pytest.
     monkeypatch.setattr(cli, "_silence_stdout", lambda: silenced.append(True))
 
@@ -462,3 +465,135 @@ def test_scan_correlate_on_loopback_does_not_warn(
     _, _, err = run_cli(capsys, "scan", "127.0.0.1", "--correlate")
 
     assert "ESTA máquina" not in err
+
+
+# ------------------------------------------------------------------------- exportación
+
+
+def test_scan_csv_goes_to_stdout(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = run_cli(capsys, "scan", "127.0.0.1", "--format", "csv", "-q")
+
+    assert code == cli.EXIT_OK
+    assert out.splitlines()[0] == ",".join(export.SCAN_COLUMNS)
+    assert "22,tcp,open,ssh" in out
+
+
+def test_scan_csv_writes_the_requested_file(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    destination = tmp_path / "puertos.csv"
+
+    code, out, err = run_cli(
+        capsys, "scan", "127.0.0.1", "--format", "csv", "--output", str(destination)
+    )
+
+    assert code == cli.EXIT_OK
+    assert out == ""  # nada por stdout: todo fue al archivo
+    assert "puertos.csv" in err  # confirmación informativa
+    rows = list(csv.reader(io.StringIO(destination.read_text(encoding="utf-8"))))
+    assert rows[0] == list(export.SCAN_COLUMNS)
+    assert len(rows) > 1
+
+
+def test_scan_csv_with_correlate_adds_the_units_column(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    destination = tmp_path / "correlacion.csv"
+
+    code, _, _ = run_cli(
+        capsys,
+        "scan",
+        "127.0.0.1",
+        "--correlate",
+        "--format",
+        "csv",
+        "--output",
+        str(destination),
+        "-q",
+    )
+
+    assert code == cli.EXIT_OK
+    header = destination.read_text(encoding="utf-8").splitlines()[0]
+    assert header.endswith(",unidades")
+
+
+def test_logs_csv_writes_the_requested_file(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    destination = tmp_path / "logs.csv"
+
+    code, out, _ = run_cli(
+        capsys, "logs", "--since", "24h", "--format", "csv", "--output", str(destination)
+    )
+
+    assert code == cli.EXIT_OK
+    assert out == ""
+    rows = list(csv.reader(io.StringIO(destination.read_text(encoding="utf-8"))))
+    assert rows[0] == list(export.LOG_COLUMNS)
+    assert len(rows) > 1
+
+
+def test_json_flag_still_works_as_a_shortcut(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--json se mantiene por compatibilidad con los scripts existentes."""
+    _, with_flag, _ = run_cli(capsys, "scan", "127.0.0.1", "--json", "-q")
+    _, with_format, _ = run_cli(capsys, "scan", "127.0.0.1", "--format", "json", "-q")
+
+    assert json.loads(with_flag) == json.loads(with_format)
+
+
+def test_json_can_also_be_written_to_a_file(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    destination = tmp_path / "resultado.json"
+
+    code, out, _ = run_cli(
+        capsys, "scan", "127.0.0.1", "--format", "json", "--output", str(destination), "-q"
+    )
+
+    assert code == cli.EXIT_OK
+    assert out == ""
+    assert json.loads(destination.read_text(encoding="utf-8"))["target"] == "127.0.0.1"
+
+
+def test_quiet_hides_the_written_file_notice(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    destination = tmp_path / "silencio.csv"
+
+    _, _, err = run_cli(capsys, "logs", "--format", "csv", "--output", str(destination), "-q")
+
+    assert "silencio.csv" not in err
+
+
+def test_unwritable_output_reports_an_error(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inexistente = tmp_path / "sin" / "crear" / "salida.csv"
+
+    code, _, err = run_cli(capsys, "logs", "--format", "csv", "--output", str(inexistente), "-q")
+
+    assert code == cli.EXIT_ERROR
+    assert "No se pudo escribir" in err
+
+
+def test_invalid_format_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["scan", "127.0.0.1", "--format", "xml"])
+
+    assert exc_info.value.code == 2
+
+
+def test_written_notice_uses_the_singular_for_one_row(
+    fake_system: FakeSystem, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    destination = tmp_path / "una.csv"
+    # Una sola entrada en el journal simulado.
+    fake_system.journal_output = fake_system.journal_output.splitlines()[0]
+
+    _, _, err = run_cli(capsys, "logs", "--format", "csv", "--output", str(destination))
+
+    assert "(1 fila)" in err

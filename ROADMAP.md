@@ -51,8 +51,8 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
 
 - [ ] **IPv6 por nombre de host.** La opción `-6` se añade automáticamente cuando el objetivo
   es una dirección o red IPv6 literal, pero no cuando es un nombre que solo resuelve a IPv6.
-- [ ] **Exportación a CSV o a un archivo.** Hoy la única salida procesable es JSON por la
-  salida estándar.
+- [x] **Exportación a CSV o a un archivo.** Resuelto: `--format {table,json,csv}` y
+  `--output ARCHIVO` en ambos subcomandos.
 - [ ] **Paginador para salidas largas.** `rich` puede enviar la salida a `less` cuando hay
   cientos de entradas.
 - [ ] **Workflow de publicación.** Que al crear una etiqueta `vX.Y.Z` se construya el wheel y
