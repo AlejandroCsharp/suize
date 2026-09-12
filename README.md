@@ -704,6 +704,51 @@ de `journalctl -o json`).
 | `test`     | `pytest` en Python 3.11, 3.12, 3.13 y 3.14                                 |
 | `package`  | Construye el wheel, verifica que incluye `default.toml`, lo instala en un entorno limpio y ejecuta `suize --help` |
 
+### Publicar una versión
+
+Los cambios de cada versión se registran en el [CHANGELOG](CHANGELOG.md), en formato
+[Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
+
+El proyecto usa [versionado semántico](https://semver.org/lang/es/). Dado `MAYOR.MENOR.PARCHE`:
+
+| Parte     | Se sube cuando...                                                          | Ejemplo                                        |
+|-----------|----------------------------------------------------------------------------|------------------------------------------------|
+| `PARCHE`  | Solo hay correcciones: el comportamiento previsto no cambia                | Un objetivo válido que se rechazaba por error  |
+| `MENOR`   | Hay funcionalidad nueva compatible con lo anterior                          | La opción `--format csv`                       |
+| `MAYOR`   | Algo que funcionaba deja de funcionar igual                                 | Renombrar una opción o cambiar el formato del JSON |
+
+Para una herramienta de línea de comandos, la interfaz pública son los nombres de las opciones,
+los formatos de salida (`--json`, `--format csv`) y los códigos de salida. Cambiar cualquiera de
+esos rompe los scripts de quien la use, así que cuentan como cambio mayor. La organización
+interna del código, en cambio, no: mover la serialización a `ui/export.py` no le afecta a nadie
+desde fuera.
+
+Mientras la versión mayor sea `0`, la interfaz se considera todavía inestable y un cambio
+incompatible solo sube la versión menor.
+
+Los cambios se anotan en el apartado **Sin publicar** del [CHANGELOG](CHANGELOG.md) según se van
+haciendo, no al final de golpe. Para publicar:
+
+```bash
+# 1. Renombrar "Sin publicar" con la versión y la fecha, dejando un nuevo
+#    apartado "Sin publicar" vacío arriba, y actualizar los enlaces del final.
+$EDITOR CHANGELOG.md
+
+# 2. Subir la versión en el código (una sola fuente de verdad: pyproject la lee de aquí).
+$EDITOR src/suize/__init__.py
+
+# 3. Comprobar que todo cuadra: hay un test que compara ambas.
+scripts/lint.sh
+
+# 4. Commit, etiqueta y publicación.
+git commit -am "Versión 0.2.0"
+git tag -a v0.2.0 -m "Versión 0.2.0"
+git push && git push --tags
+gh release create v0.2.0 --notes-from-tag
+```
+
+Si el paso 3 falla con `assert '0.2.0' == '0.1.0'`, es que falta uno de los dos primeros pasos.
+
 ### Estructura del proyecto
 
 ```

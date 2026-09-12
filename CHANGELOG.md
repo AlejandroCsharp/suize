@@ -1,0 +1,55 @@
+# Registro de cambios
+
+Todos los cambios relevantes de Suize se documentan aquí.
+
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
+[versionado semántico](https://semver.org/lang/es/): `MAYOR.MENOR.PARCHE`. Ver
+[Publicar una versión](README.md#publicar-una-versión) para el proceso.
+
+## [Sin publicar]
+
+## [0.2.0] - 2026-09-12
+
+### Añadido
+
+- Exportación a CSV y escritura a archivo: `--format {table,json,csv}` y `-o/--output` en
+  `scan` y en `logs`. El CSV de `scan` lleva una fila por puerto, y con `--correlate` añade una
+  columna `unidades`; el de `logs`, una fila por entrada. `--json` se mantiene como atajo de
+  `--format json`.
+- Paginación automática de las salidas largas: cuando hay una terminal y el resultado no cabe
+  en pantalla, se envía a `less` (o al paginador de `$PAGER`), conservando los colores. La
+  nueva opción `--no-pager` lo desactiva. Las salidas redirigidas a un archivo o a una tubería
+  nunca se paginan.
+- Detección de objetivos IPv6 indicados por nombre de host: si el nombre solo resuelve a
+  direcciones IPv6, se le pasa `-6` a Nmap automáticamente. Un nombre con registros A y AAAA
+  no lo activa, porque Nmap funciona con IPv4.
+
+### Cambiado
+
+- Las opciones globales `--config`, `--no-color` y `--no-pager` se aceptan tanto antes como
+  después del subcomando: `suize logs --since 1h --no-color` ya no da error.
+
+## [0.1.0] - 2026-09-11
+
+Primera versión.
+
+### Añadido
+
+- Menú interactivo con cuatro acciones: escanear con Nmap, analizar logs, escanear y
+  correlacionar, y salir.
+- Subcomandos `scan` y `logs` para scripts y cron, con salida JSON.
+- Escaneo con detección de versiones (`nmap -sV`) y tres perfiles: `fast`, `standard` y `full`.
+  Soporte para IPv4, IPv6 literal, redes CIDR, rangos de Nmap y nombres de host.
+- Consulta de logs con filtros combinables por unidad, prioridad, rango temporal y expresión
+  regular, con presets de tiempo legibles y resumen previo (total, conteo por prioridad y
+  unidades más activas).
+- Correlación de puertos abiertos con unidades systemd, verificadas contra
+  `systemctl list-units` antes de consultar sus logs.
+- Configuración en capas: `default.toml`, archivo del usuario y variables de entorno `SUIZE_*`.
+- Comprobación de dependencias y permisos al arrancar, sin abortar: se desactiva solo lo que no
+  se puede usar y se explica por qué.
+- Validación de objetivos y unidades contra la inyección de argumentos en Nmap y journalctl.
+
+[Sin publicar]: https://github.com/TU-USUARIO/suize/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/TU-USUARIO/suize/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/TU-USUARIO/suize/releases/tag/v0.1.0

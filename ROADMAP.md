@@ -43,12 +43,9 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
   configuración, para terminales sin una fuente que incluya esos símbolos.
 - [ ] **Ganchos de `pre-commit`.** Ejecutar ruff y mypy antes de cada commit, para detectar los
   fallos en local y no en la CI.
-- [ ] **`CHANGELOG.md` y criterio de versionado.** La versión está fijada en
-  `src/suize/__init__.py`. Conviene definir cómo se publica una versión nueva: etiqueta de Git
-  más entrada en el changelog.
-
-## Prioridad baja
-
+- [x] **`CHANGELOG.md` y criterio de versionado.** Resuelto: changelog en formato Keep a
+  Changelog, versionado semántico y proceso de publicación documentado en el README. Un test
+  comprueba que la versión del código coincide con la última del changelog.
 - [x] **IPv6 por nombre de host.** Resuelto: `nmap_runner.needs_ipv6` consulta el DNS cuando
   el objetivo es un nombre y añade `-6` si solo resuelve a IPv6.
 - [x] **Exportación a CSV o a un archivo.** Resuelto: `--format {table,json,csv}` y
