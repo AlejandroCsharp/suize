@@ -21,9 +21,9 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
   Es el módulo con la lógica más delicada del proyecto: la precedencia entre `default.toml`,
   el archivo del usuario y las variables de entorno. Un error aquí produce comportamientos
   difíciles de rastrear, porque la configuración se aplica de forma silenciosa.
-- [ ] **Tablas de correlación configurables.** `PORT_TO_UNITS` y `SERVICE_TO_UNITS` están
-  definidas en `core/correlator.py`. Llevarlas a la configuración permitiría añadir servicios
-  propios sin modificar el código.
+- [x] **Tablas de correlación configurables.** Resuelto: viven en `[correlation]` dentro del
+  TOML y se combinan entrada por entrada con las del usuario. `core/correlator.py` las recibe
+  como argumento, sin importar `config/`.
 
 ## Prioridad media
 

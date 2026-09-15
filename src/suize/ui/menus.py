@@ -110,12 +110,24 @@ def execute_scan(
     return nmap_parser.parse_nmap_xml(xml_text)
 
 
+def correlation_tables(settings: Settings) -> correlator.CorrelationTables:
+    """Traduce la configuración a las tablas que usa el correlador."""
+    return correlator.CorrelationTables(
+        ports=settings.correlation_ports,
+        services=settings.correlation_services,
+    )
+
+
 def find_correlations(
-    status_console: Console, hosts: Sequence[Host], *, timeout: float
+    status_console: Console,
+    hosts: Sequence[Host],
+    *,
+    timeout: float,
+    tables: correlator.CorrelationTables,
 ) -> list[Correlation]:
     with status_console.status("Buscando unidades systemd…"):
         services = correlator.list_system_services(timeout=timeout)
-    return correlator.correlate(hosts, services)
+    return correlator.correlate(hosts, services, tables)
 
 
 def execute_logs(status_console: Console, query: JournalQuery, *, timeout: float) -> list[LogEntry]:
@@ -168,7 +180,12 @@ def _scan_step(ctx: AppContext) -> tuple[str, list[Host]]:
 def _correlation_step(ctx: AppContext, target: str, hosts: Sequence[Host]) -> None:
     if not is_loopback(target):
         ctx.console.print(message("warning", REMOTE_CORRELATION_WARNING))
-    correlations = find_correlations(ctx.console, hosts, timeout=ctx.settings.journal_timeout)
+    correlations = find_correlations(
+        ctx.console,
+        hosts,
+        timeout=ctx.settings.journal_timeout,
+        tables=correlation_tables(ctx.settings),
+    )
     with paged(ctx.console, enabled=ctx.pager):
         render_correlations(ctx.console, correlations)
     units = correlator.units_to_query(correlations)

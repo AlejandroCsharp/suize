@@ -10,6 +10,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Añadido
 
+- Las tablas de correlación (puerto y servicio → unidades systemd) pasan a la configuración,
+  en `[correlation.ports]` y `[correlation.services]`. Se combinan entrada por entrada con las
+  que trae Suize, así que reconocer un servicio propio ya no exige tocar el código. Una lista
+  vacía desactiva una entrada.
+- Más servicios reconocidos de fábrica por la correlación: CUPS (631), Samba, Postfix, NFS,
+  rpcbind, xrdp, Cockpit, FTP, MQTT y memcached.
 - Autocompletado de shell para zsh y bash, en `completions/`. Además de subcomandos y opciones,
   completa los valores de `--profile`, `--format`, `-p/--priority` y `--since`, y las unidades
   systemd reales del equipo en `-u/--unit`. No añade dependencias.

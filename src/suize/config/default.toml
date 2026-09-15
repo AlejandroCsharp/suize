@@ -57,3 +57,65 @@ label = "Ayer"
 [[logs.time_presets]]
 key = "custom"
 label = "Personalizado (fecha exacta)"
+
+# ---------------------------------------------------------------- correlación
+#
+# Qué unidades systemd puede atender cada puerto abierto. Suize propone estos
+# nombres como candidatos y después descarta los que no existen en el sistema.
+#
+# Para añadir un servicio propio, o cambiar uno de estos, basta con repetir la
+# clave en tu archivo de configuración: se combina entrada por entrada, así que
+# no hace falta copiar toda la tabla.
+#
+#     [correlation.ports]
+#     8006 = ["pveproxy"]          # añade un servicio nuevo
+#     3306 = ["mariadb"]           # sustituye los candidatos de un puerto
+#     27017 = []                   # desactiva un puerto de la tabla
+#
+# Los nombres van sin el sufijo .service, y una instancia de plantilla como
+# postgresql@16-main la encuentra igualmente el nombre base "postgresql".
+
+[correlation.ports]
+22 = ["ssh", "sshd"]
+80 = ["nginx", "apache2", "httpd"]
+443 = ["nginx", "apache2", "httpd"]
+3306 = ["mysql", "mariadb"]
+5432 = ["postgresql"]
+6379 = ["redis", "redis-server"]
+27017 = ["mongod", "mongodb"]
+21 = ["vsftpd", "proftpd", "pure-ftpd"]
+25 = ["postfix", "exim4"]
+111 = ["rpcbind"]
+139 = ["smbd"]
+445 = ["smbd"]
+587 = ["postfix", "exim4"]
+631 = ["cups"]
+1883 = ["mosquitto"]
+2049 = ["nfs-server"]
+3389 = ["xrdp"]
+9090 = ["cockpit"]
+11211 = ["memcached"]
+
+# Nombre del servicio que detecta Nmap → unidades candidatas. Cubre los
+# servicios que escuchan en un puerto no estándar (SSH en el 2222, por
+# ejemplo), donde la tabla anterior no sirve.
+
+[correlation.services]
+ssh = ["ssh", "sshd"]
+http = ["nginx", "apache2", "httpd"]
+https = ["nginx", "apache2", "httpd"]
+mysql = ["mysql", "mariadb"]
+postgresql = ["postgresql"]
+redis = ["redis", "redis-server"]
+mongodb = ["mongod", "mongodb"]
+ipp = ["cups"]
+ftp = ["vsftpd", "proftpd", "pure-ftpd"]
+smtp = ["postfix", "exim4"]
+submission = ["postfix", "exim4"]
+rpcbind = ["rpcbind"]
+netbios-ssn = ["smbd"]
+microsoft-ds = ["smbd"]
+nfs = ["nfs-server"]
+mqtt = ["mosquitto"]
+memcache = ["memcached"]
+ms-wbt-server = ["xrdp"]
