@@ -20,7 +20,7 @@ from suize.ui import prompts
 from suize.ui.pager import paged
 from suize.ui.render_logs import render_logs
 from suize.ui.render_nmap import render_correlations, render_hosts
-from suize.ui.theme import APP_NAME, ICONS, TAGLINE, message
+from suize.ui.theme import APP_NAME, ICONS, TAGLINE, icon, icons_enabled, message
 from suize.utils.deps import Dependency, is_systemd_running, systemd_hint
 from suize.utils.permissions import PermissionStatus, journal_hint, nmap_hint
 from suize.utils.shell import CommandError
@@ -63,9 +63,9 @@ def build_dependency_panel(missing: Sequence[Dependency]) -> Panel:
     lines: list[Text] = []
     for dep in missing:
         lines.append(
-            Text.assemble(
-                (f"⚠ {dep.name}", "warning"),
-                f" no está instalado: se necesita para {dep.purpose}.",
+            message(
+                "warning",
+                f"{dep.name} no está instalado: se necesita para {dep.purpose}.",
             )
         )
         if dep.install_hint:
@@ -309,19 +309,19 @@ def _main_choices(ctx: AppContext) -> list[str | Choice]:
 
     return [
         Choice(
-            f"{ICONS['scan']} Escanear host con Nmap", value=ACTION_SCAN, disabled=disabled("nmap")
+            f"{icon('scan')}Escanear host con Nmap", value=ACTION_SCAN, disabled=disabled("nmap")
         ),
         Choice(
-            f"{ICONS['logs']} Analizar logs del sistema",
+            f"{icon('logs')}Analizar logs del sistema",
             value=ACTION_LOGS,
             disabled=disabled("journalctl"),
         ),
         Choice(
-            f"{ICONS['correlate']} Escanear + ver logs correlacionados",
+            f"{icon('correlate')}Escanear + ver logs correlacionados",
             value=ACTION_CORRELATE,
             disabled=disabled("nmap", "journalctl", "systemctl"),
         ),
-        Choice(f"{ICONS['exit']} Salir", value=ACTION_EXIT),
+        Choice(f"{icon('exit')}Salir", value=ACTION_EXIT),
     ]
 
 
@@ -343,5 +343,6 @@ def run_menu(ctx: AppContext) -> int:
         except USER_ERRORS as exc:
             ctx.console.print(message("error", str(exc)))
         ctx.console.print()
-    ctx.console.print(Text(f"¡Hasta luego! {ICONS['bye']}", style="muted"))
+    farewell = f"¡Hasta luego! {ICONS['bye']}" if icons_enabled() else "¡Hasta luego!"
+    ctx.console.print(Text(farewell, style="muted"))
     return 0

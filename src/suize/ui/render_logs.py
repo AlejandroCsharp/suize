@@ -10,8 +10,8 @@ from rich.text import Text
 
 from suize.models.log_entry import LogEntry, LogSummary
 from suize.ui.theme import (
-    ICONS,
     TIMESTAMP_FORMAT,
+    icon,
     message,
     priority_label,
     priority_style,
@@ -109,4 +109,4 @@ def render_logs(
     caption = ""
     if limit is not None and len(entries) >= limit:
         caption = f"Mostrando las últimas {limit} entradas (límite configurado)."
-    console.print(build_logs_table(entries, title=f"{ICONS['logs']} {title}", caption=caption))
+    console.print(build_logs_table(entries, title=f"{icon('logs')}{title}", caption=caption))

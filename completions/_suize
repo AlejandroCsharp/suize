@@ -65,6 +65,7 @@ _suize_global_options=(
     '--config[archivo TOML de configuración propio]:archivo:_files -g "*.toml"'
     '--no-color[salida sin colores]'
     '--no-pager[no enviar las salidas largas a less]'
+    '--no-emoji[usa marcas de texto en vez de iconos]'
     '(- *)'{-h,--help}'[muestra la ayuda]'
 )
 

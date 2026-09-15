@@ -21,7 +21,7 @@ _suize() {
     prev="${COMP_WORDS[COMP_CWORD - 1]}"
 
     # Opciones válidas antes y después del subcomando.
-    local global_opts="--config --no-color --no-pager -h --help"
+    local global_opts="--config --no-color --no-pager --no-emoji -h --help"
     local output_opts="--format -o --output --json -q --quiet"
     local scan_opts="--profile -Pn --no-ping --correlate --since --save-xml"
     local logs_opts="-u --unit -p --priority --since --until -g --grep -n --lines"

@@ -33,6 +33,10 @@ dev = [
     # el formato y romper la CI sin cambios en el código.
     "ruff>=0.16,<0.17",
     "mypy>=1.10",
+    "pytest-cov>=5.0",
+    # Los ganchos son opcionales (hay que activarlos con `pre-commit install`),
+    # pero la herramienta se instala con el resto para no tener que buscarla.
+    "pre-commit>=4.0",
 ]
 
 [project.urls]
@@ -57,6 +61,22 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+
+# --------------------------------------------------------------------- cobertura
+[tool.coverage.run]
+source = ["suize"]
+branch = true
+
+[tool.coverage.report]
+# El umbral se fija por debajo de la cobertura real (95 %) para que un cambio
+# legítimo no rompa la CI por medio punto, pero sí avise si alguien añade un
+# módulo entero sin tests. Súbelo cuando la cobertura suba de forma estable.
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]
 
 # --------------------------------------------------------------------------- ruff
 [tool.ruff]

@@ -9,7 +9,7 @@ from rich.text import Text
 
 from suize.core.correlator import Correlation
 from suize.models.host import Host
-from suize.ui.theme import ICONS, PORT_STATE_STYLES, message
+from suize.ui.theme import PORT_STATE_STYLES, icon, message
 
 
 def _host_title(host: Host) -> Text:
@@ -56,7 +56,7 @@ def render_hosts(console: Console, hosts: Sequence[Host], *, target: str = "") -
         return
     up = sum(1 for host in hosts if host.is_up)
     header = Text.assemble(
-        f"{ICONS['scan']} Resultados",
+        f"{icon('scan')}Resultados",
         (f" de {target}" if target else "", "bold"),
         (f"  ·  {up}/{len(hosts)} host(s) activos", "muted"),
     )
@@ -76,7 +76,7 @@ def render_correlations(console: Console, correlations: Sequence[Correlation]) -
         console.print(message("info", "No hay puertos abiertos que correlacionar."))
         return
     table = Table(
-        title=f"{ICONS['correlate']} Puertos ↔ unidades systemd",
+        title=f"{icon('correlate')}Puertos ↔ unidades systemd",
         title_justify="left",
         box=box.ROUNDED,
         header_style="bold",

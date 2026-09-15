@@ -26,22 +26,20 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
 
 ## Prioridad media
 
-- [ ] **Cobertura de `ui/prompts.py`** (actual: 33 %, el módulo más bajo del proyecto). Las
-  preguntas interactivas apenas se ejercitan. Se pueden probar simulando las respuestas de
-  questionary, como ya hace `tests/integration/test_cli_smoke.py` con el menú.
-- [ ] **Cobertura de `utils/permissions.py`** (actual: 51 %). La detección de root y de los
-  grupos con acceso al journal determina los avisos que ve el usuario al arrancar.
-- [ ] **Medición de cobertura en la CI.** Añadir `pytest-cov` a las dependencias de desarrollo
-  y un umbral mínimo (`--cov-fail-under`) para que la cobertura no baje con el tiempo.
+- [x] **Cobertura de `ui/prompts.py`.** Resuelto: del 33 % al 100 %, con dobles de questionary
+  en vez de una terminal real.
+- [x] **Cobertura de `utils/permissions.py`.** Resuelto: del 51 % al 100 %. Todo simulado, así
+  que da igual con qué usuario se ejecuten los tests.
+- [x] **Medición de cobertura en la CI.** Resuelto: `pytest-cov` con umbral del 90 %, aplicado
+  en la CI y en `scripts/lint.sh`.
 - [ ] **Escaneo UDP (`-sU`).** Deja fuera servicios relevantes como DNS, DHCP, SNMP y NTP.
   Requiere privilegios de root y es notablemente más lento, así que encaja mejor como perfil
   separado que como opción del escaneo normal.
 - [ ] **Modo seguimiento (`journalctl -f`).** Ver los logs en vivo mientras se reproduce un
   problema, en lugar de consultarlos después.
-- [ ] **Desactivar los iconos de la interfaz.** Una opción `--no-emoji` o una clave de
-  configuración, para terminales sin una fuente que incluya esos símbolos.
-- [ ] **Ganchos de `pre-commit`.** Ejecutar ruff y mypy antes de cada commit, para detectar los
-  fallos en local y no en la CI.
+- [x] **Desactivar los iconos de la interfaz.** Resuelto con la opción global `--no-emoji`.
+- [x] **Ganchos de `pre-commit`.** Resuelto: `.pre-commit-config.yaml` con ruff, mypy y las
+  comprobaciones básicas, fijados a las mismas versiones que la CI.
 - [x] **`CHANGELOG.md` y criterio de versionado.** Resuelto: changelog en formato Keep a
   Changelog, versionado semántico y proceso de publicación documentado en el README. Un test
   comprueba que la versión del código coincide con la última del changelog.
