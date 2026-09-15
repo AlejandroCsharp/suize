@@ -1,0 +1,50 @@
+# Ganchos que se ejecutan antes de cada commit.
+#
+# Instalación (una sola vez, dentro del entorno virtual):
+#
+#     pip install -e ".[dev]"
+#     pre-commit install
+#
+# A partir de ahí, cada `git commit` pasa ruff y mypy sobre los archivos que
+# vas a confirmar. Para pasarlos a mano sobre todo el proyecto:
+#
+#     pre-commit run --all-files
+#
+# Las versiones están fijadas a las mismas que usa la CI: si aquí pasara con
+# una versión de ruff y allí fallara con otra, el gancho no serviría de nada.
+# Al actualizar ruff en pyproject.toml, actualiza también el `rev` de abajo.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        # Solo el código fuente, igual que en la CI: los tests usan dobles y
+        # monkeypatch, donde la comprobación estricta estorba más que ayuda.
+        files: ^src/
+        # mypy necesita ver las dependencias para comprobar los tipos de rich
+        # y questionary; sin esto las daría por Any y no detectaría nada.
+        additional_dependencies:
+          - rich>=13.0
+          - questionary>=2.0
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        # Los fixtures se comparan byte a byte en los tests.
+        exclude: ^tests/fixtures/
+      - id: end-of-file-fixer
+        exclude: ^tests/fixtures/
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]

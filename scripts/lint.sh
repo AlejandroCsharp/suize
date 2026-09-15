@@ -38,7 +38,8 @@ fi
 step "mypy src"
 "${PYTHON}" -m mypy src
 
-step "pytest"
-"${PYTHON}" -m pytest -q
+step "pytest (con cobertura)"
+# Mismo umbral que la CI, para enterarse aquí y no después del push.
+"${PYTHON}" -m pytest -q --cov
 
 printf '\n\033[1;32m✔ Todo en orden.\033[0m\n'

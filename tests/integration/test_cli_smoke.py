@@ -860,3 +860,36 @@ def test_the_menu_does_not_offer_the_retry_when_a_host_responds(
     run_cli(capsys)
 
     assert not any("-Pn" in pregunta for pregunta in preguntas)
+
+
+# ------------------------------------------------------------------------------ iconos
+
+
+def test_no_emoji_is_accepted_in_both_positions() -> None:
+    for argv in (["--no-emoji", "logs"], ["logs", "--no-emoji"]):
+        assert cli.build_parser().parse_args(argv).no_emoji is True
+
+
+def test_icons_are_on_by_default() -> None:
+    assert cli.build_parser().parse_args(["logs"]).no_emoji is False
+
+
+def test_no_emoji_replaces_the_symbols_in_the_output(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_system.available = {"journalctl", "systemctl"}  # falta nmap: habrá un aviso
+
+    _, _, err = run_cli(capsys, "--no-emoji", "scan", "127.0.0.1")
+
+    assert "[!]" in err or "[x]" in err
+    assert not any(symbol in err for symbol in ("⚠", "✖"))
+
+
+def test_the_symbols_are_used_when_the_flag_is_absent(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_system.available = {"journalctl", "systemctl"}
+
+    _, _, err = run_cli(capsys, "scan", "127.0.0.1")
+
+    assert any(symbol in err for symbol in ("⚠", "✖"))

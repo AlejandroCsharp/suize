@@ -13,7 +13,7 @@ from questionary import Choice
 from suize.config.settings import TimePreset
 from suize.core.nmap_runner import ScanProfile
 from suize.models.log_entry import PRIORITY_NAMES
-from suize.ui.theme import QUESTIONARY_STYLE
+from suize.ui.theme import QUESTIONARY_STYLE, error_mark
 from suize.utils.time_filter import (
     CUSTOM_KEY,
     TimeRange,
@@ -123,7 +123,9 @@ def _ask_custom_range() -> TimeRange:
         try:
             return custom_range(since, until or None)
         except ValueError as exc:
-            questionary.print(f"✖ {exc}", style="fg:ansired bold")
+            # El mismo texto que message("error", ...), pero por questionary,
+            # que es quien controla la pantalla mientras hay un prompt abierto.
+            questionary.print(f"{error_mark()} {exc}", style="fg:ansired bold")
 
 
 def ask_priority() -> str | None:

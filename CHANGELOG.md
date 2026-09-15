@@ -10,6 +10,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Añadido
 
+- Opción global `--no-emoji`, para terminales sin una fuente que incluya los iconos. Los del
+  menú desaparecen y los de los mensajes se sustituyen por marcas de texto (`[i]`, `[ok]`,
+  `[!]`, `[x]`), que siguen distinguiendo un error de un aviso.
 - Opción `-Pn`/`--no-ping` en `scan`, que omite el descubrimiento de hosts y escanea los
   puertos aunque el equipo no responda (habitual con el cortafuegos de Windows). Cuando ningún
   host responde, Suize lo sugiere; en el menú interactivo ofrece repetir el escaneo sin
@@ -23,6 +26,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Autocompletado de shell para zsh y bash, en `completions/`. Además de subcomandos y opciones,
   completa los valores de `--profile`, `--format`, `-p/--priority` y `--since`, y las unidades
   systemd reales del equipo en `-u/--unit`. No añade dependencias.
+
+### Corregido
+
+- El panel de dependencias y el error de fecha inválida escribían su símbolo a mano en vez de
+  usar la función común, así que ignoraban cualquier cambio de formato de los mensajes.
 
 ## [0.2.0] - 2026-09-12
 

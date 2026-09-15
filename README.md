@@ -399,6 +399,7 @@ después de uno, `--help` muestra la ayuda de ese subcomando.
 | `--config ARCHIVO`  | Usa un archivo de configuración TOML propio          |
 | `--no-color`        | Desactiva los colores                                |
 | `--no-pager`        | No envía las salidas largas a `less`                 |
+| `--no-emoji`        | Usa marcas de texto en vez de iconos                 |
 | `-V`, `--version`   | Muestra la versión                                   |
 | `-h`, `--help`      | Muestra la ayuda                                     |
 
@@ -736,8 +737,9 @@ con `--json`.
 
 ### El menú muestra cuadrados en lugar de iconos
 
-La terminal no tiene una fuente con esos símbolos. En Debian, Ubuntu o Linux Mint:
-`sudo apt install fonts-noto-color-emoji`, y después reabre la terminal.
+La terminal no tiene una fuente con esos símbolos. Tienes dos salidas: instalar la fuente
+(`sudo apt install fonts-noto-color-emoji` en Debian, Ubuntu o Linux Mint, y reabrir la
+terminal), o desactivarlos con `--no-emoji`, que sustituye los iconos por marcas de texto.
 
 ## Limitaciones conocidas
 
@@ -755,7 +757,7 @@ git clone https://github.com/TU-USUARIO/suize.git
 cd suize
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"      # añade pytest, ruff y mypy
+pip install -e ".[dev]"      # pytest, ruff, mypy, pytest-cov y pre-commit
 ```
 
 ### Tests y calidad
@@ -769,6 +771,28 @@ scripts/lint.sh              # todo lo anterior en un solo comando
 scripts/lint.sh --fix        # aplica las correcciones automáticas de ruff
 ```
 
+La cobertura se mide junto con los tests, con un umbral del 90 % que comparten `scripts/lint.sh`
+y la CI:
+
+```bash
+pytest --cov                 # informe por módulo, con las líneas sin cubrir
+```
+
+### Comprobaciones antes de cada commit
+
+Opcional, pero recomendable: `pre-commit` ejecuta ruff y mypy sobre lo que vas a confirmar, así
+los fallos aparecen antes del push y no en la CI.
+
+La herramienta viene con las dependencias de desarrollo; solo falta activarla:
+
+```bash
+pre-commit install           # una sola vez, dentro del entorno virtual
+pre-commit run --all-files   # para pasarlo a mano sobre todo el proyecto
+```
+
+Las versiones de las herramientas están fijadas en `.pre-commit-config.yaml` a las mismas que
+usa la CI. Si actualizas ruff en `pyproject.toml`, actualiza también el `rev` de ese archivo.
+
 Los tests no necesitan Nmap, journalctl, systemd ni permisos de root: sustituyen las llamadas
 al sistema por respuestas grabadas en `tests/fixtures/` (un XML real de Nmap y una salida real
 de `journalctl -o json`).
@@ -780,7 +804,7 @@ de `journalctl -o json`).
 | Job        | Qué comprueba                                                              |
 |------------|----------------------------------------------------------------------------|
 | `lint`     | `ruff check`, `ruff format --check` y `mypy src`                           |
-| `test`     | `pytest` en Python 3.11, 3.12, 3.13 y 3.14                                 |
+| `test`     | `pytest` en Python 3.11, 3.12, 3.13 y 3.14, con cobertura en 3.12          |
 | `package`  | Construye el wheel, verifica que incluye `default.toml`, lo instala en un entorno limpio y ejecuta `suize --help` |
 
 ### Publicar una versión

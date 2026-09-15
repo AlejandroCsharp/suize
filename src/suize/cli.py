@@ -40,7 +40,7 @@ from suize.ui.export import (
 )
 from suize.ui.pager import paged
 from suize.ui.render_nmap import render_correlations, render_hosts
-from suize.ui.theme import make_console, message
+from suize.ui.theme import configure_icons, make_console, message
 from suize.utils.deps import (
     Dependency,
     check_dependencies,
@@ -89,6 +89,7 @@ GLOBAL_OPTION_HELP = {
     "--config": "archivo TOML de configuración propio",
     "--no-color": "salida sin colores",
     "--no-pager": "no enviar las salidas largas a less",
+    "--no-emoji": "usa marcas de texto en vez de iconos",
 }
 
 
@@ -509,6 +510,8 @@ def _cmd_interactive(
 def main(argv: Sequence[str] | None = None) -> int:
     """Punto de entrada (script ``suize`` y ``python -m suize``). Devuelve el código de salida."""
     args = build_parser().parse_args(argv)
+    # Antes de crear nada que imprima: fija los iconos para todo el proceso.
+    configure_icons(emoji=not args.no_emoji)
     out = make_console(no_color=args.no_color)
     err = make_console(no_color=args.no_color, stderr=True)
 

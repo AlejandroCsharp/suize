@@ -51,8 +51,10 @@ jobs:
       - name: Instalar dependencias
         run: python -m pip install -e ".[dev]"
       # Los tests simulan nmap, journalctl y systemctl: no hace falta instalarlos.
+      # La cobertura se mide en una sola versión: el umbral es el mismo en todas
+      # y medirlo cinco veces solo alargaría la CI.
       - name: pytest
-        run: pytest -v
+        run: pytest -v ${{ matrix.python-version == '3.12' && '--cov' || '' }}
 
   package:
     name: Paquete instalable
