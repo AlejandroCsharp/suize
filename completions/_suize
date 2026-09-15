@@ -1,0 +1,134 @@
+#compdef suize
+#
+# Completado de zsh para Suize.
+#
+# Instalación: copiar este archivo como `_suize` en un directorio del $fpath,
+# por ejemplo ~/.local/share/zsh/site-functions, y ejecutar `compinit`.
+# Ver la sección "Autocompletado" del README.
+#
+# Si añades o quitas opciones en src/suize/cli.py, actualiza también este
+# archivo: tests/unit/test_completions.py comprueba que no se separen.
+
+# Unidades systemd reales del equipo, para completar -u/--unit.
+_suize_units() {
+    # Sin comprobar antes si existe systemctl: dentro del completado,
+    # $+commands[...] da falso aunque el binario esté en el PATH, porque
+    # depende de la tabla de comandos de zsh. Si no existe, la salida viene
+    # vacía y se sale sin ofrecer nada.
+    local -a units
+    units=(${(f)"$(systemctl list-units --type=service --all --no-legend --plain 2>/dev/null | awk '{print $1}')"})
+    (( ${#units} )) || return 1
+    _describe -t units 'unidad systemd' units
+}
+
+_suize_priorities() {
+    local -a priorities
+    priorities=(
+        '0:emerg - el sistema no es utilizable'
+        '1:alert - hay que actuar de inmediato'
+        '2:crit - condición crítica'
+        '3:err - error'
+        '4:warning - aviso'
+        '5:notice - normal pero destacable'
+        '6:info - informativo'
+        '7:debug - depuración'
+        'emerg:nivel 0'
+        'alert:nivel 1'
+        'crit:nivel 2'
+        'err:nivel 3'
+        'warning:nivel 4'
+        'notice:nivel 5'
+        'info:nivel 6'
+        'debug:nivel 7'
+    )
+    _describe -t priorities 'prioridad' priorities
+}
+
+_suize_since() {
+    local -a ranges
+    ranges=(
+        '15m:últimos 15 minutos'
+        '1h:última hora'
+        '6h:últimas 6 horas'
+        '24h:últimas 24 horas'
+        '7d:últimos 7 días'
+        'today:desde las 00:00 de hoy'
+        'yesterday:el día de ayer completo'
+        'hoy:desde las 00:00 de hoy'
+        'ayer:el día de ayer completo'
+    )
+    _describe -t ranges 'rango temporal' ranges
+}
+
+# Opciones aceptadas antes y después del subcomando.
+_suize_global_options=(
+    '--config[archivo TOML de configuración propio]:archivo:_files -g "*.toml"'
+    '--no-color[salida sin colores]'
+    '--no-pager[no enviar las salidas largas a less]'
+    '(- *)'{-h,--help}'[muestra la ayuda]'
+)
+
+# Opciones de salida, comunes a scan y logs.
+_suize_output_options=(
+    '--format[formato de salida]:formato:(table json csv)'
+    {-o,--output}'[escribe el resultado en un archivo]:archivo:_files'
+    '--json[atajo de --format json]'
+    {-q,--quiet}'[oculta avisos informativos]'
+)
+
+_suize_scan() {
+    _arguments -s -S \
+        $_suize_global_options \
+        $_suize_output_options \
+        '--profile[alcance del escaneo]:perfil:((
+            fast\:"los 100 puertos más comunes"
+            standard\:"los 1000 puertos más comunes"
+            full\:"los 65535 puertos TCP"
+        ))' \
+        '--correlate[muestra también los logs de las unidades systemd]' \
+        '--since[rango temporal para --correlate]:rango:_suize_since' \
+        '--save-xml[guarda una copia del XML de Nmap]:archivo:_files -g "*.xml"' \
+        '1:objetivo:_hosts'
+}
+
+_suize_logs() {
+    _arguments -s -S \
+        $_suize_global_options \
+        $_suize_output_options \
+        '*'{-u,--unit}'[unidad systemd (se puede repetir)]:unidad:_suize_units' \
+        {-p,--priority}'[prioridad máxima o rango]:prioridad:_suize_priorities' \
+        '--since[inicio del intervalo]:rango:_suize_since' \
+        '--until[fin del intervalo]:fecha:' \
+        {-g,--grep}'[filtra mensajes por expresión regular]:regex:' \
+        {-n,--lines}'[máximo de entradas a mostrar]:número:'
+}
+
+_suize() {
+    local context state state_descr line
+    typeset -A opt_args
+    local -a commands
+    commands=(
+        'scan:escanea un objetivo con Nmap'
+        'logs:consulta los logs del sistema con journalctl'
+    )
+
+    _arguments -C \
+        $_suize_global_options \
+        '(- *)'{-V,--version}'[muestra la versión]' \
+        '1:subcomando:->command' \
+        '*::argumentos:->args'
+
+    case $state in
+        command)
+            _describe -t commands 'subcomando' commands
+            ;;
+        args)
+            case $words[1] in
+                scan) _suize_scan ;;
+                logs) _suize_logs ;;
+            esac
+            ;;
+    esac
+}
+
+_suize "$@"

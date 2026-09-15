@@ -54,8 +54,9 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
   pantalla y hay terminal; `--no-pager` lo desactiva.
 - [ ] **Workflow de publicación.** Que al crear una etiqueta `vX.Y.Z` se construya el wheel y
   se adjunte automáticamente a la release de GitHub.
-- [ ] **Autocompletado de shell.** `argparse` no lo proporciona; con `argcomplete` se
-  completarían subcomandos y opciones en bash.
+- [x] **Autocompletado de shell.** Resuelto con scripts propios para zsh y bash en
+  `completions/`, sin dependencias, con un test que comprueba que no se desincronicen del
+  parser.
 - [ ] **Capturas o grabación en el README.** Una animación del menú comunica la herramienta
   mejor que un bloque de texto.
 - [ ] **Publicación en PyPI.** Permitiría instalarlo con `pipx install suize`. Conviene

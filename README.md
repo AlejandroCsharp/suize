@@ -52,6 +52,7 @@ $ suize scan 127.0.0.1 --correlate --since 1h
 - [Características](#características)
 - [Requisitos](#requisitos)
 - [Instalación](#instalación)
+- [Autocompletado](#autocompletado)
 - [Uso rápido](#uso-rápido)
 - [Menú interactivo](#menú-interactivo)
 - [Subcomandos](#subcomandos)
@@ -181,6 +182,48 @@ pipx install git+https://github.com/TU-USUARIO/suize.git
 
 Si una actualización cambia las dependencias (`pyproject.toml`), repite
 `.venv/bin/pip install -e .` después del `git pull`.
+
+## Autocompletado
+
+El repositorio incluye completados para zsh y bash en `completions/`. No hacen falta
+dependencias. Además de subcomandos y opciones, completan los valores de `--profile`,
+`--format`, `-p` y `--since`, y las unidades systemd **reales de tu equipo** en `-u`:
+
+```
+$ suize logs -u ngi<Tab>
+$ suize logs -u nginx.service
+```
+
+### zsh
+
+```bash
+mkdir -p ~/.local/share/zsh/site-functions
+cp completions/_suize ~/.local/share/zsh/site-functions/_suize
+```
+
+Si el directorio no está en tu `$fpath`, añade esta línea a `~/.zshrc` **antes** de la llamada
+a `compinit`:
+
+```zsh
+fpath=(~/.local/share/zsh/site-functions $fpath)
+```
+
+Abre una terminal nueva. Si el completado no aparece, borra la caché con
+`rm -f ~/.zcompdump*` y vuelve a abrirla.
+
+### bash
+
+```bash
+sudo cp completions/suize.bash /etc/bash_completion.d/suize
+```
+
+O sin privilegios, añadiendo a `~/.bashrc`:
+
+```bash
+source ~/suize/completions/suize.bash
+```
+
+Requiere el paquete `bash-completion`, que viene instalado en Ubuntu y Linux Mint.
 
 ## Uso rápido
 
