@@ -16,10 +16,10 @@ Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
 - [x] **Opción `-Pn` para omitir el descubrimiento de hosts.** Resuelta: `-Pn`/`--no-ping` en
   `scan`, con sugerencia automática cuando ningún host responde y reintento ofrecido en el
   menú interactivo.
-- [ ] **Tests de `config/settings.py`** (cobertura actual: 77 %, sin archivo de tests propio).
-  Es el módulo con la lógica más delicada del proyecto: la precedencia entre `default.toml`,
-  el archivo del usuario y las variables de entorno. Un error aquí produce comportamientos
-  difíciles de rastrear, porque la configuración se aplica de forma silenciosa.
+- [x] **Tests de `config/settings.py`.** Resuelto: cobertura al 100 % (antes 77 %). Cubre la
+  precedencia completa entre `default.toml`, el archivo del usuario (explícito e implícito) y
+  las variables de entorno, la fusión parcial por clave, y los errores de tipo, rango y TOML
+  mal formado.
 - [x] **Tablas de correlación configurables.** Resuelto: viven en `[correlation]` dentro del
   TOML y se combinan entrada por entrada con las del usuario. `core/correlator.py` las recibe
   como argumento, sin importar `config/`.
