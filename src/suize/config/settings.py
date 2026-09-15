@@ -12,14 +12,24 @@ Este módulo solo usa la stdlib y no importa nada del resto del proyecto.
 """
 
 import os
+import re
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 CONFIG_ENV_VAR = "SUIZE_CONFIG"
+
+#: Nombres de unidad systemd aceptables. Se validan aquí porque acaban como
+#: argumento de journalctl; un valor con caracteres raros se rechaza al cargar
+#: la configuración, no al ejecutar.
+UNIT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@-]*$")
+
+#: Puerto TCP válido.
+MIN_PORT, MAX_PORT = 1, 65535
 
 #: Variable de entorno → (sección TOML, clave, tipo).
 ENV_OVERRIDES: dict[str, tuple[str, str, Literal["str", "int"]]] = {
@@ -56,6 +66,10 @@ class Settings:
     top_units: int
     default_time_preset: str
     time_presets: tuple[TimePreset, ...]
+    #: Puerto → unidades systemd candidatas.
+    correlation_ports: Mapping[int, tuple[str, ...]]
+    #: Servicio detectado por Nmap → unidades systemd candidatas.
+    correlation_services: Mapping[str, tuple[str, ...]]
     sources: tuple[str, ...] = ()
 
 
@@ -189,9 +203,55 @@ def _build_presets(raw: object) -> tuple[TimePreset, ...]:
     return tuple(presets)
 
 
+def _unit_names(raw: object, name: str) -> tuple[str, ...]:
+    """Valida una lista de nombres de unidad. La lista vacía es válida: desactiva la entrada."""
+    if not isinstance(raw, list):
+        raise ConfigError(f"'{name}' debe ser una lista de nombres de unidad.")
+    units: list[str] = []
+    for index, item in enumerate(raw):
+        unit = _as_str(item, f"{name}[{index}]")
+        if not UNIT_NAME_RE.match(unit):
+            raise ConfigError(
+                f"'{name}[{index}]': '{unit}' no es un nombre de unidad válido. "
+                "Usa el nombre sin el sufijo .service, p. ej. 'nginx'."
+            )
+        units.append(unit)
+    return tuple(dict.fromkeys(units))  # sin duplicados, conservando el orden
+
+
+def _build_port_map(raw: object) -> Mapping[int, tuple[str, ...]]:
+    if not isinstance(raw, Mapping):
+        raise ConfigError("[correlation.ports] debe ser una tabla TOML.")
+    table: dict[int, tuple[str, ...]] = {}
+    for key, value in raw.items():
+        try:
+            port = int(key)
+        except ValueError:
+            raise ConfigError(f"'correlation.ports': '{key}' no es un número de puerto.") from None
+        if not MIN_PORT <= port <= MAX_PORT:
+            raise ConfigError(
+                f"'correlation.ports': el puerto {port} está fuera de {MIN_PORT}-{MAX_PORT}."
+            )
+        table[port] = _unit_names(value, f"correlation.ports.{key}")
+    return MappingProxyType(table)
+
+
+def _build_service_map(raw: object) -> Mapping[str, tuple[str, ...]]:
+    if not isinstance(raw, Mapping):
+        raise ConfigError("[correlation.services] debe ser una tabla TOML.")
+    table = {
+        _as_str(key, "correlation.services").lower(): _unit_names(
+            value, f"correlation.services.{key}"
+        )
+        for key, value in raw.items()
+    }
+    return MappingProxyType(table)
+
+
 def _build_settings(data: Mapping[str, Any], sources: tuple[str, ...]) -> Settings:
     scan = _section(data, "scan")
     logs = _section(data, "logs")
+    correlation = _section(data, "correlation")
     presets = _build_presets(logs.get("time_presets"))
     return Settings(
         default_target=_as_str(scan.get("default_target"), "scan.default_target"),
@@ -204,5 +264,7 @@ def _build_settings(data: Mapping[str, Any], sources: tuple[str, ...]) -> Settin
             logs.get("default_time_preset", presets[0].key), "logs.default_time_preset"
         ),
         time_presets=presets,
+        correlation_ports=_build_port_map(correlation.get("ports", {})),
+        correlation_services=_build_service_map(correlation.get("services", {})),
         sources=sources,
     )

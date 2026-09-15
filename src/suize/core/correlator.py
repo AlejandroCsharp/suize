@@ -1,35 +1,28 @@
 """Correlación Nmap ↔ logs: qué unidades systemd corresponden a los puertos abiertos."""
 
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 
 from suize.models.host import Host, Port
 from suize.utils import shell
 
 SYSTEMCTL_BINARY = "systemctl"
 
-#: Puerto → nombres de unidad systemd candidatos (sin sufijo ``.service``).
-PORT_TO_UNITS: dict[int, list[str]] = {
-    22: ["ssh", "sshd"],
-    80: ["nginx", "apache2", "httpd"],
-    443: ["nginx", "apache2", "httpd"],
-    3306: ["mysql", "mariadb"],
-    5432: ["postgresql"],
-    6379: ["redis", "redis-server"],
-    27017: ["mongod", "mongodb"],
-}
 
-#: Nombre de servicio de Nmap → unidades candidatas. Cubre servicios en puertos
-#: no estándar (p. ej. SSH en el 2222 o nginx en el 8080).
-SERVICE_TO_UNITS: dict[str, list[str]] = {
-    "ssh": ["ssh", "sshd"],
-    "http": ["nginx", "apache2", "httpd"],
-    "https": ["nginx", "apache2", "httpd"],
-    "mysql": ["mysql", "mariadb"],
-    "postgresql": ["postgresql"],
-    "redis": ["redis", "redis-server"],
-    "mongodb": ["mongod", "mongodb"],
-}
+@dataclass(frozen=True, slots=True)
+class CorrelationTables:
+    """Qué unidades systemd puede atender un puerto o un servicio.
+
+    Las tablas vienen de la configuración (``[correlation]`` en el TOML), no del
+    código: así se amplían sin tocar este módulo. ``core`` no importa ``config``,
+    por eso llegan como argumento.
+    """
+
+    #: Puerto → unidades candidatas, sin el sufijo ``.service``.
+    ports: Mapping[int, Sequence[str]] = field(default_factory=dict)
+    #: Nombre de servicio de Nmap → unidades candidatas. Cubre los servicios en
+    #: puertos no estándar (SSH en el 2222, nginx en el 8080).
+    services: Mapping[str, Sequence[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,10 +39,10 @@ class Correlation:
         return bool(self.units)
 
 
-def candidate_units(port: Port) -> list[str]:
+def candidate_units(port: Port, tables: CorrelationTables) -> list[str]:
     """Unidades candidatas para un puerto, por número y por nombre de servicio."""
     service = port.service.lower().rsplit("/", 1)[-1]  # "ssl/http" → "http"
-    names = PORT_TO_UNITS.get(port.number, []) + SERVICE_TO_UNITS.get(service, [])
+    names = [*tables.ports.get(port.number, ()), *tables.services.get(service, ())]
     return list(dict.fromkeys(names))  # sin duplicados, conservando el orden
 
 
@@ -89,12 +82,14 @@ def _unit_matches(candidate: str, unit: str) -> bool:
     return unit == candidate or unit.startswith(f"{candidate}@")
 
 
-def correlate(hosts: Iterable[Host], available_units: set[str]) -> list[Correlation]:
+def correlate(
+    hosts: Iterable[Host], available_units: set[str], tables: CorrelationTables
+) -> list[Correlation]:
     """Cruza los puertos abiertos de ``hosts`` con las unidades existentes."""
     correlations: list[Correlation] = []
     for host in hosts:
         for port in host.open_ports:
-            candidates = candidate_units(port)
+            candidates = candidate_units(port, tables)
             units = sorted(
                 unit
                 for unit in available_units

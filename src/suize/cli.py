@@ -305,7 +305,12 @@ def _cmd_scan(
     correlation_error: Exception | None = None
     if args.correlate and any(host.open_ports for host in hosts):
         try:
-            correlations = menus.find_correlations(err, hosts, timeout=settings.journal_timeout)
+            correlations = menus.find_correlations(
+                err,
+                hosts,
+                timeout=settings.journal_timeout,
+                tables=menus.correlation_tables(settings),
+            )
             units = correlator.units_to_query(correlations)
             if units:
                 query = JournalQuery(

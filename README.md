@@ -432,9 +432,34 @@ La correlación sigue cuatro pasos:
 | 5432     | `postgresql`     | `postgresql`                  |
 | 6379     | `redis`          | `redis`, `redis-server`       |
 | 27017    | `mongodb`        | `mongod`, `mongodb`           |
+| 631      | `ipp`            | `cups`                        |
+| 139, 445 | `netbios-ssn`    | `smbd`                        |
+| 25, 587  | `smtp`           | `postfix`, `exim4`            |
+| 2049     | `nfs`            | `nfs-server`                  |
+| 9090     | —                | `cockpit`                     |
 
-Las tablas de asociación están en `src/suize/core/correlator.py` (`PORT_TO_UNITS` y
-`SERVICE_TO_UNITS`) y se pueden ampliar con nuevos servicios.
+Y algunos más: FTP, rpcbind, xrdp, MQTT y memcached. La lista completa está en
+`src/suize/config/default.toml`.
+
+### Reconocer tus propios servicios
+
+Las tablas están en la configuración, no en el código, así que se amplían sin tocar Python.
+Añade lo que necesites a `~/.config/suize/config.toml`:
+
+```toml
+[correlation.ports]
+8006 = ["pveproxy"]          # un servicio propio
+3306 = ["mariadb"]           # sustituye los candidatos de un puerto
+27017 = []                   # desactiva un puerto de la tabla
+
+[correlation.services]
+http-alt = ["mi-servicio"]   # por el nombre que detecta Nmap, sea cual sea el puerto
+```
+
+Se combinan **entrada por entrada** con las que trae Suize: solo hay que escribir las que
+cambias, no la tabla completa. Los nombres van sin el sufijo `.service` y se validan al
+arrancar, así que una errata se detecta con un mensaje claro en vez de fallar luego al
+consultar los logs.
 
 Si un puerto aparece como `— ninguna —`, el servicio está escuchando pero no hay una unidad
 systemd con ese nombre. Es habitual con servicios que corren en contenedores, cuyos logs se
@@ -594,6 +619,8 @@ default_time_preset = "today"
 | `logs.timeout`              | `SUIZE_JOURNAL_TIMEOUT`  | `60`        | Tiempo máximo de una consulta, en segundos    |
 | `logs.default_time_preset`  | `SUIZE_TIME_PRESET`      | `1h`        | Rango preseleccionado en el menú y en `--correlate` |
 | `logs.top_units`            | —                        | `5`         | Unidades que se muestran en el resumen        |
+| `correlation.ports`         | —                        | 7 servicios | Puerto → unidades systemd candidatas          |
+| `correlation.services`      | —                        | 7 servicios | Servicio de Nmap → unidades systemd candidatas |
 | `logs.time_presets`         | —                        | 8 presets   | Rangos que ofrece el menú (lista de `key` y `label`) |
 
 Los valores se validan al arrancar. Un tipo incorrecto o un perfil inexistente terminan con
@@ -708,7 +735,7 @@ La terminal no tiene una fuente con esos símbolos. En Debian, Ubuntu o Linux Mi
 - **Solo TCP**: no se realizan escaneos UDP (`-sU`).
 - **Correlación local**: los logs corresponden siempre a la máquina donde se ejecuta Suize.
 - **Asociaciones predefinidas**: la correlación reconoce los servicios de la tabla anterior;
-  otros servicios requieren ampliarla en el código.
+  para otros hay que añadirlos a la configuración.
 
 ## Desarrollo
 
