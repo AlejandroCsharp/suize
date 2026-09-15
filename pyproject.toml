@@ -36,9 +36,9 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/TU-USUARIO/suize"
-Issues = "https://github.com/TU-USUARIO/suize/issues"
-Documentation = "https://github.com/TU-USUARIO/suize/tree/main/docs"
+Repository = "https://github.com/AlejandroCsharp/suize"
+Issues = "https://github.com/AlejandroCsharp/suize/issues"
+Documentation = "https://github.com/AlejandroCsharp/suize/tree/main/docs"
 
 [project.scripts]
 suize = "suize.cli:main"
