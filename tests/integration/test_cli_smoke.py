@@ -725,3 +725,138 @@ def test_the_subcommand_does_not_reset_an_earlier_global_option() -> None:
     args = cli.build_parser().parse_args(["--no-pager", "--no-color", "logs", "--since", "1h"])
 
     assert (args.no_pager, args.no_color) == (True, True)
+
+
+# ------------------------------------------------------------- descubrimiento de hosts
+
+
+ALL_DOWN_XML = """<?xml version="1.0"?>
+<nmaprun scanner="nmap" args="nmap -sV 192.168.1.50">
+<host><status state="down" reason="no-response"/>
+<address addr="192.168.1.50" addrtype="ipv4"/></host>
+<runstats><finished time="1768473020"/><hosts up="0" down="1" total="1"/></runstats>
+</nmaprun>
+"""
+
+
+def test_scan_passes_dash_pn_to_nmap(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_cli(capsys, "scan", "192.168.1.10", "-Pn", "-q")
+
+    nmap_call = next(call for call in fake_system.calls if call[0] == "nmap")
+    assert "-Pn" in nmap_call
+
+
+def test_the_long_form_works_too(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_cli(capsys, "scan", "192.168.1.10", "--no-ping", "-q")
+
+    assert "-Pn" in next(call for call in fake_system.calls if call[0] == "nmap")
+
+
+def test_nmap_is_not_given_the_flag_by_default(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_cli(capsys, "scan", "192.168.1.10", "-q")
+
+    assert "-Pn" not in next(call for call in fake_system.calls if call[0] == "nmap")
+
+
+def test_a_host_that_does_not_respond_suggests_the_flag(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Sin terminal interactiva no se puede preguntar, así que se sugiere."""
+    fake_system.nmap_xml = ALL_DOWN_XML
+
+    code, _, err = run_cli(capsys, "scan", "192.168.1.50")
+
+    assert code == cli.EXIT_OK
+    assert "-Pn" in err
+
+
+def test_the_suggestion_does_not_repeat_when_the_flag_is_already_used(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_system.nmap_xml = ALL_DOWN_XML
+
+    _, _, err = run_cli(capsys, "scan", "192.168.1.50", "-Pn")
+
+    assert "-Pn" not in err
+
+
+def test_quiet_hides_the_suggestion(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_system.nmap_xml = ALL_DOWN_XML
+
+    _, _, err = run_cli(capsys, "scan", "192.168.1.50", "-q")
+
+    assert "-Pn" not in err
+
+
+def test_a_host_that_responds_gets_no_suggestion(
+    fake_system: FakeSystem, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, _, err = run_cli(capsys, "scan", "192.168.1.10")
+
+    assert "-Pn" not in err
+
+
+def test_the_menu_offers_to_retry_without_discovery(
+    fake_system: FakeSystem,
+    scripted_menu: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Nadie responde: el menú lo propone en lugar de preguntar en cada escaneo."""
+    fake_system.nmap_xml = ALL_DOWN_XML
+    scripted_menu.extend([menus.ACTION_SCAN, menus.ACTION_EXIT])
+    monkeypatch.setattr(prompts, "ask_target", lambda default: "192.168.1.50")
+    monkeypatch.setattr(prompts, "ask_scan_profile", lambda profiles, default: "fast")
+    monkeypatch.setattr(prompts, "confirm", lambda message, default=True: True)
+
+    code, _, _ = run_cli(capsys)
+
+    assert code == cli.EXIT_OK
+    scans = fake_system.calls_for("nmap")
+    assert len(scans) == 2  # el original y el reintento
+    assert "-Pn" not in scans[0]
+    assert "-Pn" in scans[1]
+
+
+def test_declining_the_retry_leaves_a_single_scan(
+    fake_system: FakeSystem,
+    scripted_menu: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_system.nmap_xml = ALL_DOWN_XML
+    scripted_menu.extend([menus.ACTION_SCAN, menus.ACTION_EXIT])
+    monkeypatch.setattr(prompts, "ask_target", lambda default: "192.168.1.50")
+    monkeypatch.setattr(prompts, "ask_scan_profile", lambda profiles, default: "fast")
+    monkeypatch.setattr(prompts, "confirm", lambda message, default=True: False)
+
+    run_cli(capsys)
+
+    assert len(fake_system.calls_for("nmap")) == 1
+
+
+def test_the_menu_does_not_offer_the_retry_when_a_host_responds(
+    fake_system: FakeSystem,
+    scripted_menu: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    preguntas: list[str] = []
+    scripted_menu.extend([menus.ACTION_SCAN, menus.ACTION_EXIT])
+    monkeypatch.setattr(prompts, "ask_target", lambda default: "192.168.1.10")
+    monkeypatch.setattr(prompts, "ask_scan_profile", lambda profiles, default: "fast")
+    monkeypatch.setattr(
+        prompts, "confirm", lambda message, default=True: (preguntas.append(message), False)[1]
+    )
+
+    run_cli(capsys)
+
+    assert not any("-Pn" in pregunta for pregunta in preguntas)

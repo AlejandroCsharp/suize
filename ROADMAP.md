@@ -13,10 +13,9 @@ Cada punto tiene su issue en GitHub con la etiqueta correspondiente.
 
 Lo que más cambia el uso diario o lo que más cuesta diagnosticar si falla.
 
-- [ ] **Opción `-Pn` para omitir el descubrimiento de hosts.** Actualmente, un equipo que no
-  responde a las pruebas de descubrimiento (habitual con el cortafuegos de Windows) se informa
-  como `down` y no hay manera de forzar el escaneo de sus puertos. Afecta a
-  `core/nmap_runner.py` y a los argumentos de `cli.py`.
+- [x] **Opción `-Pn` para omitir el descubrimiento de hosts.** Resuelta: `-Pn`/`--no-ping` en
+  `scan`, con sugerencia automática cuando ningún host responde y reintento ofrecido en el
+  menú interactivo.
 - [ ] **Tests de `config/settings.py`** (cobertura actual: 77 %, sin archivo de tests propio).
   Es el módulo con la lógica más delicada del proyecto: la precedencia entre `default.toml`,
   el archivo del usuario y las variables de entorno. Un error aquí produce comportamientos

@@ -159,3 +159,21 @@ def test_build_command_never_resolves_by_itself(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(socket, "getaddrinfo", boom)
 
     assert "-6" not in build_command("ejemplo.lan", XML)
+
+
+# ----------------------------------------------------------------- descubrimiento (-Pn)
+
+
+def test_skip_ping_adds_the_flag() -> None:
+    assert "-Pn" in build_command("192.168.1.10", XML, skip_ping=True)
+
+
+def test_the_flag_is_absent_by_default() -> None:
+    assert "-Pn" not in build_command("192.168.1.10", XML)
+
+
+def test_skip_ping_combines_with_ipv6_and_profile() -> None:
+    cmd = build_command("::1", XML, profile="fast", skip_ping=True)
+
+    assert cmd[:4] == ["nmap", "-6", "-Pn", "-sV"]
+    assert "-F" in cmd

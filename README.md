@@ -276,6 +276,7 @@ suize scan [TARGET] [--profile {fast,standard,full}] [--correlate] [--since RANG
 | `--profile`         | Alcance del escaneo (ver tabla de perfiles). Por defecto, `standard`.             |
 | `--correlate`       | Después del escaneo, muestra la correlación y los logs de los servicios encontrados. |
 | `--since RANGO`     | Rango temporal de los logs de `--correlate`. Por defecto, el preset configurado (`1h`). |
+| `-Pn`, `--no-ping`  | Omite el descubrimiento de hosts: escanea aunque el equipo no responda.           |
 | `--save-xml ARCHIVO`| Guarda una copia del XML original de Nmap.                                        |
 | `--format`          | `table` (por defecto), `json` o `csv`. Ver [Exportar resultados](#exportar-resultados). |
 | `-o`, `--output ARCHIVO` | Escribe el resultado en un archivo en lugar de la salida estándar.           |
@@ -711,7 +712,17 @@ no tendrán datos.
 
 Antes de escanear puertos, Nmap comprueba si el equipo responde. Muchos cortafuegos (por
 ejemplo, el de Windows con su configuración por defecto) bloquean esas pruebas y el equipo se
-da por apagado. Ver [Limitaciones conocidas](#limitaciones-conocidas).
+da por apagado. Usa `-Pn` para saltarse esa comprobación:
+
+```bash
+suize scan 192.168.1.40 -Pn
+```
+
+Cuando ningún host responde, Suize lo sugiere por su cuenta; en el menú interactivo, ofrece
+directamente repetir el escaneo sin descubrimiento.
+
+El escaneo tarda más, porque Nmap prueba todos los puertos de un equipo que quizá ni exista.
+Con una red entera (`-Pn` sobre un `/24`) la diferencia es notable.
 
 ### El escaneo tarda mucho o se interrumpe por tiempo
 
@@ -730,8 +741,6 @@ La terminal no tiene una fuente con esos símbolos. En Debian, Ubuntu o Linux Mi
 
 ## Limitaciones conocidas
 
-- **Descubrimiento de hosts**: no hay una opción equivalente a `nmap -Pn`, por lo que los
-  equipos que no responden a las pruebas de descubrimiento se muestran como `down`.
 - **Solo TCP**: no se realizan escaneos UDP (`-sU`).
 - **Correlación local**: los logs corresponden siempre a la máquina donde se ejecuta Suize.
 - **Asociaciones predefinidas**: la correlación reconoce los servicios de la tabla anterior;

@@ -101,13 +101,30 @@ def execute_scan(
     profile: str,
     timeout: float,
     save_xml: Path | None = None,
+    skip_ping: bool = False,
 ) -> list[Host]:
     """Escanea con Nmap (mostrando un spinner) y devuelve los hosts parseados."""
     with status_console.status(f"Escaneando {target} con Nmap… (Ctrl+C para cancelar)"):
         xml_text = nmap_runner.run_scan(
-            target, profile=profile, timeout=timeout, save_xml_to=save_xml
+            target,
+            profile=profile,
+            timeout=timeout,
+            save_xml_to=save_xml,
+            skip_ping=skip_ping,
         )
     return nmap_parser.parse_nmap_xml(xml_text)
+
+
+#: Sugerencia cuando el descubrimiento de hosts no encuentra nada.
+SKIP_PING_HINT = (
+    "Ningún host respondió a las pruebas de descubrimiento. Si sabes que está encendido, "
+    "puede estar bloqueándolas (típico del cortafuegos de Windows): reintenta con -Pn."
+)
+
+
+def nothing_responded(hosts: Sequence[Host]) -> bool:
+    """``True`` si Nmap no devolvió hosts o todos figuran como caídos."""
+    return not any(host.is_up for host in hosts)
 
 
 def correlation_tables(settings: Settings) -> correlator.CorrelationTables:
@@ -174,6 +191,20 @@ def _scan_step(ctx: AppContext) -> tuple[str, list[Host]]:
     hosts = execute_scan(ctx.console, target, profile=profile, timeout=ctx.settings.scan_timeout)
     with paged(ctx.console, enabled=ctx.pager):
         render_hosts(ctx.console, hosts, target=target)
+
+    # En vez de preguntar por -Pn en cada escaneo, se ofrece solo cuando hace falta.
+    if nothing_responded(hosts):
+        ctx.console.print(message("warning", SKIP_PING_HINT))
+        if prompts.confirm("¿Reintentar sin descubrimiento de hosts (-Pn)?", default=True):
+            hosts = execute_scan(
+                ctx.console,
+                target,
+                profile=profile,
+                timeout=ctx.settings.scan_timeout,
+                skip_ping=True,
+            )
+            with paged(ctx.console, enabled=ctx.pager):
+                render_hosts(ctx.console, hosts, target=target)
     return target, hosts
 
 

@@ -85,6 +85,7 @@ _suize_scan() {
             standard\:"los 1000 puertos más comunes"
             full\:"los 65535 puertos TCP"
         ))' \
+        {-Pn,--no-ping}'[omite el descubrimiento: escanea aunque no responda]' \
         '--correlate[muestra también los logs de las unidades systemd]' \
         '--since[rango temporal para --correlate]:rango:_suize_since' \
         '--save-xml[guarda una copia del XML de Nmap]:archivo:_files -g "*.xml"' \

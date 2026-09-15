@@ -42,6 +42,7 @@ def build_command(
     profile: str = DEFAULT_PROFILE,
     extra_args: Sequence[str] = (),
     force_ipv6: bool = False,
+    skip_ping: bool = False,
 ) -> list[str]:
     """Construye ``nmap [-6] -sV [perfil] -oX <archivo> <target>``.
 
@@ -49,7 +50,10 @@ def build_command(
     llegue a Nmap como opción (inyección de argumentos).
 
     ``-6`` se añade cuando el objetivo es una dirección o red IPv6 literal, o cuando
-    ``force_ipv6`` lo indica. Esta función no consulta el DNS: quien decide sobre un
+    ``force_ipv6`` lo indica. ``skip_ping`` añade ``-Pn``, que omite el descubrimiento
+    de hosts y escanea los puertos aunque el equipo no responda a las pruebas previas.
+
+    Esta función no consulta el DNS: quien decide sobre un
     nombre de host es :func:`needs_ipv6`, para que construir el comando siga siendo
     una operación pura y comprobable sin red.
 
@@ -68,6 +72,8 @@ def build_command(
         NMAP_BINARY,
         # Nmap solo acepta objetivos IPv6 si se le pide explícitamente con -6.
         *(["-6"] if force_ipv6 or is_ipv6_target(clean_target) else []),
+        # -Pn da por activo todo objetivo y va directo a los puertos.
+        *(["-Pn"] if skip_ping else []),
         "-sV",
         *scan_profile.args,
         *extra_args,
@@ -99,6 +105,7 @@ def run_scan(
     timeout: float = DEFAULT_SCAN_TIMEOUT,
     extra_args: Sequence[str] = (),
     save_xml_to: Path | None = None,
+    skip_ping: bool = False,
 ) -> str:
     """Ejecuta Nmap sobre ``target`` y devuelve el XML de resultados como texto.
 
@@ -118,6 +125,7 @@ def run_scan(
             profile=profile,
             extra_args=extra_args,
             force_ipv6=needs_ipv6(target),
+            skip_ping=skip_ping,
         )
         shell.run(cmd, timeout=timeout)
         if not xml_path.is_file() or xml_path.stat().st_size == 0:
