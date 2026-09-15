@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+
+- Autocompletado de shell para zsh y bash, en `completions/`. Además de subcomandos y opciones,
+  completa los valores de `--profile`, `--format`, `-p/--priority` y `--since`, y las unidades
+  systemd reales del equipo en `-u/--unit`. No añade dependencias.
+
 ## [0.2.0] - 2026-09-12
 
 ### Añadido
