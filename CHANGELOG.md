@@ -10,6 +10,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Añadido
 
+- Opción `-Pn`/`--no-ping` en `scan`, que omite el descubrimiento de hosts y escanea los
+  puertos aunque el equipo no responda (habitual con el cortafuegos de Windows). Cuando ningún
+  host responde, Suize lo sugiere; en el menú interactivo ofrece repetir el escaneo sin
+  descubrimiento.
 - Las tablas de correlación (puerto y servicio → unidades systemd) pasan a la configuración,
   en `[correlation.ports]` y `[correlation.services]`. Se combinan entrada por entrada con las
   que trae Suize, así que reconocer un servicio propio ya no exige tocar el código. Una lista

@@ -154,6 +154,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="fast (-F) · standard (1000 puertos) · full (-p-)",
     )
     scan.add_argument(
+        "-Pn",
+        "--no-ping",
+        dest="skip_ping",
+        action="store_true",
+        help="omite el descubrimiento de hosts: escanea aunque el equipo no responda",
+    )
+    scan.add_argument(
         "--correlate",
         action="store_true",
         help="muestra también los logs de las unidades systemd de los puertos abiertos",
@@ -292,6 +299,7 @@ def _cmd_scan(
             profile=args.profile or settings.scan_profile,
             timeout=settings.scan_timeout,
             save_xml=args.save_xml,
+            skip_ping=args.skip_ping,
         )
     except menus.USER_ERRORS as exc:
         err.print(message("error", str(exc)))
@@ -373,6 +381,10 @@ def _cmd_scan(
                             "info", "Ninguna unidad systemd coincide con los servicios detectados."
                         )
                     )
+
+    # Después de la tabla: leerlo antes del resultado despista.
+    if not args.quiet and not args.skip_ping and menus.nothing_responded(hosts):
+        err.print(message("warning", menus.SKIP_PING_HINT))
 
     if correlation_error is not None:
         err.print(message("error", f"No se pudo correlacionar con los logs: {correlation_error}"))
